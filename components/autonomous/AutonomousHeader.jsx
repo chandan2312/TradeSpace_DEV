@@ -33,6 +33,21 @@ export default function AutonomousHeader({
   const [eetTime, setEetTime] = useState("");
   const [activeSession, setActiveSession] = useState("");
   const [currentSlot, setCurrentSlot] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const m = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
+      setIsMobile(m);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    window.addEventListener("orientationchange", checkMobile);
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+      window.removeEventListener("orientationchange", checkMobile);
+    };
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -82,7 +97,8 @@ export default function AutonomousHeader({
             }}
             title="Return to Charts"
           >
-            <ArrowLeft size={14} /> Charts
+            <ArrowLeft size={14} />
+            {!isMobile && <span>Charts</span>}
           </a>
 
           <button
@@ -111,7 +127,8 @@ export default function AutonomousHeader({
             }}
             title="Open Autonomous Trading Journal"
           >
-            <BookOpen size={14} /> Journal
+            <BookOpen size={14} />
+            {!isMobile && <span>Journal</span>}
           </button>
         </div>
 

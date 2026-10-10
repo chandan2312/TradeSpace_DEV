@@ -32,6 +32,7 @@ import {
   Check,
   ChevronDown,
   FileSpreadsheet,
+  RotateCcw,
 } from "lucide-react";
 import JournalDrawerModal from "./JournalDrawerModal";
 import { useChartSettings } from "../../lib/chartSettings";
@@ -300,6 +301,64 @@ export default function JournalView() {
   const [endDate, setEndDate] = useState("");
   const [quickSearch, setQuickSearch] = useState("");
 
+  const [isMobile, setIsMobile] = useState(false);
+  const LS_COL_STATE_KEY = "ts_journal_grid_columns";
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const m = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
+      setIsMobile(m);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    window.addEventListener("orientationchange", checkMobile);
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+      window.removeEventListener("orientationchange", checkMobile);
+    };
+  }, []);
+
+  const saveColumnState = useCallback((api) => {
+    if (!api) return;
+    try {
+      const state = api.getColumnState();
+      if (Array.isArray(state) && state.length > 0) {
+        localStorage.setItem(LS_COL_STATE_KEY, JSON.stringify(state));
+      }
+    } catch (err) {
+      console.warn("[JournalView] Failed to save column state:", err);
+    }
+  }, []);
+
+  const restoreColumnState = useCallback((api) => {
+    if (!api) return;
+    try {
+      const saved = localStorage.getItem(LS_COL_STATE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        if (Array.isArray(state) && state.length > 0) {
+          api.applyColumnState({
+            state,
+            applyOrder: true,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[JournalView] Failed to restore column state:", err);
+    }
+  }, []);
+
+  const resetColumnState = useCallback(() => {
+    try {
+      localStorage.removeItem(LS_COL_STATE_KEY);
+      if (gridRef.current?.api) {
+        gridRef.current.api.resetColumnState();
+      }
+    } catch (err) {
+      console.warn("[JournalView] Failed to reset column state:", err);
+    }
+  }, []);
+
   const gridRef = useRef(null);
 
   // Fetch journal trades from API
@@ -526,13 +585,16 @@ export default function JournalView() {
       floatingFilter: false,
       resizable: true,
       minWidth: 90,
+      suppressMovable: false,
     };
   }, []);
 
   // AG Grid Column Definitions
+  // Default order: Entry Time -> Symbol -> Outcome -> Actual Return -> Side -> Profit ($) -> All other columns
   const colDefs = useMemo(() => {
     return [
       {
+        colId: "entryTime",
         field: "entryTime",
         headerName: "Entry Time (EET)",
         width: 155,
@@ -541,6 +603,7 @@ export default function JournalView() {
         filter: "agTextColumnFilter",
       },
       {
+        colId: "symbol",
         field: "symbol",
         headerName: "Symbol",
         width: 105,
@@ -548,6 +611,77 @@ export default function JournalView() {
         filter: "agTextColumnFilter",
       },
       {
+        colId: "outcome",
+        field: "outcome",
+        headerName: "Outcome",
+        width: 130,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params) => {
+          const ar = Number(params.data?.actualR ?? params.data?.realizedR ?? 0);
+          let out = params.value || "OPEN";
+          if (out !== "CANCELLED" && out !== "OPEN") {
+            if (ar >= -0.2 && ar <= 0.2) out = "BREAKEVEN";
+            else if (ar > 0.2) out = "WIN";
+            else out = "LOSS";
+          }
+
+          let bg = "rgba(255, 255, 255, 0.08)";
+          let col = "var(--fg)";
+          let icon = "⚪";
+          if (out === "WIN") {
+            bg = "rgba(38, 166, 154, 0.2)";
+            col = "var(--green)";
+            icon = "🎯";
+          } else if (out === "LOSS") {
+            bg = "rgba(239, 83, 80, 0.2)";
+            col = "var(--red)";
+            icon = "🛑";
+          } else if (out === "BREAKEVEN") {
+            bg = "rgba(255, 255, 255, 0.1)";
+            col = "var(--muted)";
+            icon = "⚪";
+          } else if (out === "OPEN") {
+            bg = "rgba(41, 98, 255, 0.2)";
+            col = "var(--accent)";
+            icon = "🟢";
+          }
+          return (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: bg,
+                color: col,
+              }}
+            >
+              {out} {icon}
+            </span>
+          );
+        },
+      },
+      {
+        colId: "actualR",
+        field: "actualR",
+        headerName: "Actual Return (AR)",
+        width: 130,
+        filter: "agNumberColumnFilter",
+        cellStyle: (params) => {
+          const v = Number(params.value);
+          if (v > 0.2) return { color: "var(--green)", fontWeight: "800", fontFamily: "monospace", backgroundColor: "rgba(38, 166, 154, 0.08)" };
+          if (v < -0.2) return { color: "var(--red)", fontWeight: "800", fontFamily: "monospace", backgroundColor: "rgba(239, 83, 80, 0.08)" };
+          return { color: "var(--muted)", fontWeight: "700", fontFamily: "monospace" };
+        },
+        valueFormatter: (params) => {
+          const v = Number(params.value);
+          if (!Number.isFinite(v)) return "-";
+          if (v >= -0.2 && v <= 0.2) return "0.00 AR (BE)";
+          return v > 0 ? `+${v.toFixed(2)} AR` : `${v.toFixed(2)} AR`;
+        },
+      },
+      {
+        colId: "dirLabel",
         field: "dirLabel",
         headerName: "Side",
         width: 90,
@@ -571,6 +705,21 @@ export default function JournalView() {
         },
       },
       {
+        colId: "realizedPnlUsd",
+        field: "realizedPnlUsd",
+        headerName: "Profit ($)",
+        width: 115,
+        filter: "agNumberColumnFilter",
+        cellStyle: (params) => {
+          const v = Number(params.value);
+          if (v > 0) return { color: "var(--green)", fontWeight: "700", fontFamily: "monospace" };
+          if (v < 0) return { color: "var(--red)", fontWeight: "700", fontFamily: "monospace" };
+          return { color: "var(--muted)", fontFamily: "monospace" };
+        },
+        valueFormatter: (params) => formatCurrency(params.value),
+      },
+      {
+        colId: "managementModel",
         field: "managementModel",
         headerName: "Risk Model",
         width: 195,
@@ -599,6 +748,7 @@ export default function JournalView() {
         },
       },
       {
+        colId: "redecisionAction",
         field: "redecisionAction",
         headerName: "Milestone Redecision",
         width: 175,
@@ -659,74 +809,7 @@ export default function JournalView() {
         },
       },
       {
-        field: "outcome",
-        headerName: "Outcome",
-        width: 130,
-        filter: "agTextColumnFilter",
-        cellRenderer: (params) => {
-          const ar = Number(params.data?.actualR ?? params.data?.realizedR ?? 0);
-          let out = params.value || "OPEN";
-          if (out !== "CANCELLED" && out !== "OPEN") {
-            if (ar >= -0.2 && ar <= 0.2) out = "BREAKEVEN";
-            else if (ar > 0.2) out = "WIN";
-            else out = "LOSS";
-          }
-
-          let bg = "rgba(255, 255, 255, 0.08)";
-          let col = "var(--fg)";
-          let icon = "⚪";
-          if (out === "WIN") {
-            bg = "rgba(38, 166, 154, 0.2)";
-            col = "var(--green)";
-            icon = "🎯";
-          } else if (out === "LOSS") {
-            bg = "rgba(239, 83, 80, 0.2)";
-            col = "var(--red)";
-            icon = "🛑";
-          } else if (out === "BREAKEVEN") {
-            bg = "rgba(255, 255, 255, 0.1)";
-            col = "var(--muted)";
-            icon = "⚪";
-          } else if (out === "OPEN") {
-            bg = "rgba(41, 98, 255, 0.2)";
-            col = "var(--accent)";
-            icon = "🟢";
-          }
-          return (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                padding: "2px 8px",
-                borderRadius: 4,
-                background: bg,
-                color: col,
-              }}
-            >
-              {out} {icon}
-            </span>
-          );
-        },
-      },
-      {
-        field: "actualR",
-        headerName: "Actual Return (AR)",
-        width: 130,
-        filter: "agNumberColumnFilter",
-        cellStyle: (params) => {
-          const v = Number(params.value);
-          if (v > 0.2) return { color: "var(--green)", fontWeight: "800", fontFamily: "monospace", backgroundColor: "rgba(38, 166, 154, 0.08)" };
-          if (v < -0.2) return { color: "var(--red)", fontWeight: "800", fontFamily: "monospace", backgroundColor: "rgba(239, 83, 80, 0.08)" };
-          return { color: "var(--muted)", fontWeight: "700", fontFamily: "monospace" };
-        },
-        valueFormatter: (params) => {
-          const v = Number(params.value);
-          if (!Number.isFinite(v)) return "-";
-          if (v >= -0.2 && v <= 0.2) return "0.00 AR (BE)";
-          return v > 0 ? `+${v.toFixed(2)} AR` : `${v.toFixed(2)} AR`;
-        },
-      },
-      {
+        colId: "idealR",
         field: "idealR",
         headerName: "Ideal R (IR)",
         width: 115,
@@ -747,19 +830,7 @@ export default function JournalView() {
         },
       },
       {
-        field: "realizedPnlUsd",
-        headerName: "Profit ($)",
-        width: 115,
-        filter: "agNumberColumnFilter",
-        cellStyle: (params) => {
-          const v = Number(params.value);
-          if (v > 0) return { color: "var(--green)", fontWeight: "700", fontFamily: "monospace" };
-          if (v < 0) return { color: "var(--red)", fontWeight: "700", fontFamily: "monospace" };
-          return { color: "var(--muted)", fontFamily: "monospace" };
-        },
-        valueFormatter: (params) => formatCurrency(params.value),
-      },
-      {
+        colId: "peakR",
         field: "peakR",
         headerName: "Max Equity (R)",
         width: 125,
@@ -771,6 +842,7 @@ export default function JournalView() {
         },
       },
       {
+        colId: "maxDrawdownR",
         field: "maxDrawdownR",
         headerName: "Max DD (R)",
         width: 115,
@@ -782,24 +854,28 @@ export default function JournalView() {
         },
       },
       {
+        colId: "horizon",
         field: "horizon",
         headerName: "Horizon",
         width: 145,
         filter: "agTextColumnFilter",
       },
       {
+        colId: "entryModel",
         field: "entryModel",
         headerName: "Entry Model",
         width: 165,
         filter: "agTextColumnFilter",
       },
       {
+        colId: "session",
         field: "session",
         headerName: "Session / Killzone",
         width: 155,
         filter: "agTextColumnFilter",
       },
       {
+        colId: "entryPrice",
         field: "entryPrice",
         headerName: "Entry Price",
         width: 115,
@@ -808,6 +884,7 @@ export default function JournalView() {
         valueFormatter: (params) => formatPrice5(params.value),
       },
       {
+        colId: "slPrice",
         field: "slPrice",
         headerName: "Stop Loss",
         width: 110,
@@ -816,6 +893,7 @@ export default function JournalView() {
         valueFormatter: (params) => formatPrice5(params.value),
       },
       {
+        colId: "tpPrice",
         field: "tpPrice",
         headerName: "Take Profit",
         width: 110,
@@ -824,6 +902,7 @@ export default function JournalView() {
         valueFormatter: (params) => formatPrice5(params.value),
       },
       {
+        colId: "fullTpPrice",
         field: "fullTpPrice",
         headerName: "Full Assigned TP",
         width: 140,
@@ -836,6 +915,7 @@ export default function JournalView() {
         },
       },
       {
+        colId: "exitPrice",
         field: "exitPrice",
         headerName: "Exit Price",
         width: 110,
@@ -844,6 +924,7 @@ export default function JournalView() {
         valueFormatter: (params) => formatPrice5(params.value),
       },
       {
+        colId: "lotSize",
         field: "lotSize",
         headerName: "Lots",
         width: 85,
@@ -852,6 +933,7 @@ export default function JournalView() {
         valueFormatter: (params) => formatPrice5(params.value),
       },
       {
+        colId: "initialRiskUsd",
         field: "initialRiskUsd",
         headerName: "Risk ($)",
         width: 100,
@@ -860,6 +942,7 @@ export default function JournalView() {
         valueFormatter: (params) => `$${params.value}`,
       },
       {
+        colId: "durationMinutes",
         field: "durationMinutes",
         headerName: "Hold Time",
         width: 105,
@@ -868,6 +951,7 @@ export default function JournalView() {
         valueFormatter: (params) => (params.value != null ? `${params.value}m` : "-"),
       },
       {
+        colId: "closeTime",
         field: "closeTime",
         headerName: "Close Time",
         width: 150,
@@ -875,6 +959,7 @@ export default function JournalView() {
         filter: "agTextColumnFilter",
       },
       {
+        colId: "actions",
         headerName: "Actions",
         width: 120,
         sortable: false,
@@ -1046,6 +1131,28 @@ export default function JournalView() {
           </div>
 
           <button
+            onClick={resetColumnState}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 12px",
+              borderRadius: 6,
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid var(--border)",
+              color: "var(--muted)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Reset column order and width to default"
+            aria-label="Reset Columns"
+          >
+            <RotateCcw size={13} />
+            {!isMobile && <span>Reset Columns</span>}
+          </button>
+
+          <button
             onClick={fetchTrades}
             disabled={loading}
             style={{
@@ -1064,7 +1171,7 @@ export default function JournalView() {
             title="Reload latest trades from MongoDB & MT5 broker history"
           >
             <RefreshCw size={13} className={loading ? "spin" : ""} />
-            Refresh
+            {!isMobile && <span>Refresh</span>}
           </button>
 
           <button
@@ -1085,7 +1192,7 @@ export default function JournalView() {
             title="Download full journal as CSV spreadsheet"
           >
             <Download size={13} />
-            Export CSV
+            {!isMobile && <span>Export CSV</span>}
           </button>
         </div>
       </header>
@@ -1122,7 +1229,7 @@ export default function JournalView() {
           aria-label="All Trades Sheet"
         >
           <FileSpreadsheet size={14} />
-          <span>All Trades</span>
+          {!isMobile && <span>All Trades</span>}
           <span
             style={{
               fontSize: 10,
@@ -1157,7 +1264,7 @@ export default function JournalView() {
           aria-label="TradeDefault Sheet (50% Milestone + Runner)"
         >
           <Zap size={14} />
-          <span>TradeDefault (Milestone)</span>
+          {!isMobile && <span>TradeDefault (Milestone)</span>}
           <span
             style={{
               fontSize: 10,
@@ -1192,7 +1299,7 @@ export default function JournalView() {
           aria-label="TradeProp Safe Sheet (1.5R–2.5R Target)"
         >
           <Shield size={14} />
-          <span>TradeProp (Prop-Firm)</span>
+          {!isMobile && <span>TradeProp (Prop-Firm)</span>}
           <span
             style={{
               fontSize: 10,
@@ -1472,8 +1579,20 @@ export default function JournalView() {
             paginationPageSize={50}
             paginationPageSizeSelector={[25, 50, 100, 250, 500]}
             onRowClicked={(event) => setSelectedTrade(event.data)}
-            onGridReady={(_params) => {
-              // Maintain institutional column widths with horizontal scrolling
+            onGridReady={(params) => {
+              restoreColumnState(params.api);
+            }}
+            onColumnMoved={(params) => {
+              if (params.finished !== false) saveColumnState(params.api);
+            }}
+            onColumnResized={(params) => {
+              if (params.finished !== false) saveColumnState(params.api);
+            }}
+            onColumnPinned={(params) => {
+              saveColumnState(params.api);
+            }}
+            onSortChanged={(params) => {
+              saveColumnState(params.api);
             }}
             reactiveCustomComponents={true}
             overlayLoadingTemplate={
@@ -1562,13 +1681,13 @@ export default function JournalView() {
                   >
                     <th style={{ padding: "10px 14px" }}>Entry Time (EET)</th>
                     <th style={{ padding: "10px 14px" }}>Symbol</th>
-                    <th style={{ padding: "10px 14px" }}>Side</th>
-                    <th style={{ padding: "10px 14px" }}>Risk Model</th>
-                    <th style={{ padding: "10px 14px" }}>Milestone Redecision</th>
                     <th style={{ padding: "10px 14px" }}>Outcome</th>
                     <th style={{ padding: "10px 14px" }}>Actual R (AR)</th>
+                    <th style={{ padding: "10px 14px" }}>Side</th>
+                    <th style={{ padding: "10px 14px" }}>Profit ($)</th>
+                    <th style={{ padding: "10px 14px" }}>Risk Model</th>
+                    <th style={{ padding: "10px 14px" }}>Milestone Redecision</th>
                     <th style={{ padding: "10px 14px" }}>Ideal R (IR)</th>
-                    <th style={{ padding: "10px 14px" }}>Net Profit ($)</th>
                     <th style={{ padding: "10px 14px" }}>MFE / MAE</th>
                     <th style={{ padding: "10px 14px" }}>Entry → Exit</th>
                     <th style={{ padding: "10px 14px" }}>SL / Active TP</th>
@@ -1619,11 +1738,56 @@ export default function JournalView() {
                               fontWeight: 800,
                               padding: "2px 7px",
                               borderRadius: 4,
+                              background:
+                                out === "WIN"
+                                  ? "rgba(38, 166, 154, 0.2)"
+                                  : out === "LOSS"
+                                  ? "rgba(239, 83, 80, 0.2)"
+                                  : out === "BREAKEVEN"
+                                  ? "rgba(255, 255, 255, 0.1)"
+                                  : "rgba(41, 98, 255, 0.2)",
+                              color:
+                                out === "WIN"
+                                  ? "var(--green)"
+                                  : out === "LOSS"
+                                  ? "var(--red)"
+                                  : out === "BREAKEVEN"
+                                  ? "var(--muted)"
+                                  : "var(--accent)",
+                            }}
+                          >
+                            {out} {out === "WIN" ? "🎯" : out === "LOSS" ? "🛑" : out === "BREAKEVEN" ? "⚪" : "🟢"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 800, whiteSpace: "nowrap" }}>
+                          <span
+                            style={{
+                              color: ar > 0.2 ? "var(--green)" : ar < -0.2 ? "var(--red)" : "var(--muted)",
+                              background: ar > 0.2 ? "rgba(38, 166, 154, 0.1)" : ar < -0.2 ? "rgba(239, 83, 80, 0.1)" : "transparent",
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
+                            {ar >= -0.2 && ar <= 0.2 ? "0.00 AR (BE)" : ar > 0 ? `+${ar.toFixed(2)} AR` : `${ar.toFixed(2)} AR`}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 800,
+                              padding: "2px 7px",
+                              borderRadius: 4,
                               background: isBuy ? "rgba(38, 166, 154, 0.18)" : "rgba(239, 83, 80, 0.18)",
                               color: isBuy ? "var(--green)" : "var(--red)",
                             }}
                           >
                             {isBuy ? "BUY ▲" : "SELL ▼"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>
+                          <span style={{ color: pnl > 0 ? "var(--green)" : pnl < 0 ? "var(--red)" : "var(--muted)" }}>
+                            {formatCurrency(pnl)}
                           </span>
                         </td>
                         <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
@@ -1681,46 +1845,6 @@ export default function JournalView() {
                               {t.isPropFirm ? "N/A" : "-"}
                             </span>
                           )}
-                        </td>
-                        <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              padding: "2px 7px",
-                              borderRadius: 4,
-                              background:
-                                out === "WIN"
-                                  ? "rgba(38, 166, 154, 0.2)"
-                                  : out === "LOSS"
-                                  ? "rgba(239, 83, 80, 0.2)"
-                                  : out === "BREAKEVEN"
-                                  ? "rgba(255, 255, 255, 0.1)"
-                                  : "rgba(41, 98, 255, 0.2)",
-                              color:
-                                out === "WIN"
-                                  ? "var(--green)"
-                                  : out === "LOSS"
-                                  ? "var(--red)"
-                                  : out === "BREAKEVEN"
-                                  ? "var(--muted)"
-                                  : "var(--accent)",
-                            }}
-                          >
-                            {out} {out === "WIN" ? "🎯" : out === "LOSS" ? "🛑" : out === "BREAKEVEN" ? "⚪" : "🟢"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 800, whiteSpace: "nowrap" }}>
-                          <span
-                            style={{
-                              color: ar > 0.2 ? "var(--green)" : ar < -0.2 ? "var(--red)" : "var(--muted)",
-                              background: ar > 0.2 ? "rgba(38, 166, 154, 0.1)" : ar < -0.2 ? "rgba(239, 83, 80, 0.1)" : "transparent",
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                            }}
-                          >
-                            {ar >= -0.2 && ar <= 0.2 ? "0.00 AR (BE)" : ar > 0 ? `+${ar.toFixed(2)} AR` : `${ar.toFixed(2)} AR`}
-                          </span>
                         </td>
                         <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>
                           {out === "WIN" || (out === "OPEN" && ar > 0.2) ? (

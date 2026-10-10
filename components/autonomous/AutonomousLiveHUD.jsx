@@ -842,8 +842,8 @@ export default function AutonomousLiveHUD({
               aria-label="Active Positions"
               style={{
                 flex: 1,
-                minWidth: 70,
-                padding: "8px 10px",
+                minWidth: isMobile ? 36 : 70,
+                padding: isMobile ? "8px 6px" : "8px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 border: "none",
@@ -859,7 +859,7 @@ export default function AutonomousLiveHUD({
               }}
             >
               <Zap size={13} />
-              <span>Active</span>
+              {!isMobile && <span>Active</span>}
               <span
                 style={{
                   fontSize: 10,
@@ -881,8 +881,8 @@ export default function AutonomousLiveHUD({
               aria-label="Staged Setups"
               style={{
                 flex: 1,
-                minWidth: 72,
-                padding: "8px 10px",
+                minWidth: isMobile ? 36 : 72,
+                padding: isMobile ? "8px 6px" : "8px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 border: "none",
@@ -898,7 +898,7 @@ export default function AutonomousLiveHUD({
               }}
             >
               <Clock size={13} />
-              <span>Staged</span>
+              {!isMobile && <span>Staged</span>}
               <span
                 style={{
                   fontSize: 10,
@@ -920,8 +920,8 @@ export default function AutonomousLiveHUD({
               aria-label="Trading Journal"
               style={{
                 flex: 1,
-                minWidth: 72,
-                padding: "8px 10px",
+                minWidth: isMobile ? 36 : 72,
+                padding: isMobile ? "8px 6px" : "8px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 border: "none",
@@ -937,7 +937,7 @@ export default function AutonomousLiveHUD({
               }}
             >
               <FileSpreadsheet size={13} />
-              <span>Journal</span>
+              {!isMobile && <span>Journal</span>}
             </button>
 
             {/* Tab 4: Market Radar */}
@@ -947,8 +947,8 @@ export default function AutonomousLiveHUD({
               aria-label="Market Radar"
               style={{
                 flex: 1,
-                minWidth: 68,
-                padding: "8px 10px",
+                minWidth: isMobile ? 36 : 68,
+                padding: isMobile ? "8px 6px" : "8px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 border: "none",
@@ -964,7 +964,7 @@ export default function AutonomousLiveHUD({
               }}
             >
               <Compass size={13} />
-              <span>Radar</span>
+              {!isMobile && <span>Radar</span>}
               {effectiveRadarPairs.length > 0 && (
                 <span
                   style={{
@@ -988,8 +988,8 @@ export default function AutonomousLiveHUD({
               aria-label="Audit Logs"
               style={{
                 flex: 1,
-                minWidth: 62,
-                padding: "8px 10px",
+                minWidth: isMobile ? 36 : 62,
+                padding: isMobile ? "8px 6px" : "8px 10px",
                 fontSize: 11,
                 fontWeight: 700,
                 border: "none",
@@ -1005,7 +1005,7 @@ export default function AutonomousLiveHUD({
               }}
             >
               <Terminal size={13} />
-              <span>Logs</span>
+              {!isMobile && <span>Logs</span>}
               {effectiveLogs.length > 0 && (
                 <span
                   style={{
