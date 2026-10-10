@@ -23,6 +23,7 @@ import { useChartSettings } from "../lib/chartSettings";
 import { LAYOUT_CONFIG } from "../lib/layouts";
 import { sanitizeDrawings } from "../lib/draw/core.js";
 import { canonOf } from "../lib/autonomous/symbols.js";
+import { hydrateTemplatesFromServer } from "../lib/draw/templates.js";
 
 // Strip un-anchored (pre-time-model) drawings from a stored {symbol:[...]} blob
 // so loading an old layout can't reintroduce drawings that won't place on TF.
@@ -299,6 +300,9 @@ export default function Dashboard() {
             window.dispatchEvent(new CustomEvent("ts_drawings_sync"));
           }
         }
+        if (d.settings.toolTemplates) {
+          hydrateTemplatesFromServer(d.settings.toolTemplates);
+        }
       }
     }).catch(console.error);
 
@@ -322,6 +326,9 @@ export default function Dashboard() {
               window.dispatchEvent(new Event("storage"));
               window.dispatchEvent(new CustomEvent("ts_drawings_sync"));
             }
+          }
+          if (d.ok && d.settings?.toolTemplates) {
+            hydrateTemplatesFromServer(d.settings.toolTemplates);
           }
         })
         .catch(() => {});

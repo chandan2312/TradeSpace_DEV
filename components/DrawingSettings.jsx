@@ -7,8 +7,12 @@ import {
   Settings, Bookmark, Trash2, Check, RotateCcw, Plus,
   ChevronDown, Type, Eye, EyeOff, Sliders, Layers
 } from "lucide-react";
-
-const TEMPLATES_KEY = "ts_tool_templates";
+import {
+  TEMPLATES_KEY,
+  getTemplatesForTool,
+  saveToolTemplate,
+  deleteToolTemplate,
+} from "../lib/draw/templates.js";
 
 export default function DrawingSettings({ api }) {
   const { settingsOpen, setSettingsOpen, selected, updateSelected } = api;
@@ -24,12 +28,12 @@ export default function DrawingSettings({ api }) {
   // Load templates for current tool kind
   useEffect(() => {
     if (!toolKind) return;
-    try {
-      const all = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}");
-      setTemplates(all[toolKind] || []);
-    } catch {
-      setTemplates([]);
-    }
+    setTemplates(getTemplatesForTool(toolKind));
+    const handleUpdate = () => {
+      setTemplates(getTemplatesForTool(toolKind));
+    };
+    window.addEventListener("ts_templates_updated", handleUpdate);
+    return () => window.removeEventListener("ts_templates_updated", handleUpdate);
   }, [toolKind, settingsOpen]);
 
   if (!settingsOpen || !selected) return null;
@@ -62,12 +66,8 @@ export default function DrawingSettings({ api }) {
     const name = newTemplateName.trim();
     if (!name) return;
     try {
-      const all = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}");
-      const list = all[toolKind] || [];
-      const updated = [...list.filter((t) => t.name !== name), { name, style: { ...style } }];
-      all[toolKind] = updated;
-      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(all));
-      setTemplates(updated);
+      saveToolTemplate(toolKind, name, style);
+      setTemplates(getTemplatesForTool(toolKind));
       setNewTemplateName("");
       setSaveTemplateModalOpen(false);
       setTemplateMenuOpen(false);
@@ -92,13 +92,11 @@ export default function DrawingSettings({ api }) {
   const handleDeleteTemplate = (e, name) => {
     e.stopPropagation();
     try {
-      const all = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}");
-      const list = all[toolKind] || [];
-      const updated = list.filter((t) => t.name !== name);
-      all[toolKind] = updated;
-      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(all));
-      setTemplates(updated);
-    } catch {}
+      deleteToolTemplate(toolKind, name);
+      setTemplates(getTemplatesForTool(toolKind));
+    } catch (e) {
+      console.error("Failed to delete template:", e);
+    }
   };
 
   const handleResetDefaults = () => {

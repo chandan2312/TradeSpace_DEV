@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Trash2, Plus, GripVertical, Flag, X, ArrowUp, ArrowDown, Settings2, LayoutGrid, Zap, ChevronDown } from "lucide-react";
 import { LAYOUT_CONFIG, LayoutIcon } from "../lib/layouts";
+import { getSymbolAliases, resolveAliasValue } from "../lib/watchlistAliases.js";
 
 const TFS = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 const TF_LABEL = { M1: "1m", M5: "5m", M15: "15m", M30: "30m", H1: "1h", H4: "4h", D1: "1D" };
@@ -225,53 +226,114 @@ export default function Watchlist({
     }
   });
 
-  const updateDailyOpen = useCallback((sym, openVal) => {
-    setDailyOpens((prev) => {
-      const next = { ...prev, [sym]: openVal };
-      try {
-        const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => typeof v === "number" && v > 0));
-        localStorage.setItem("ts_daily_opens", JSON.stringify(clean));
-      } catch {}
-      return next;
-    });
+  const [fallbackPrices, setFallbackPrices] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("ts_fallback_prices") || "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  const updateSymbolRates = useCallback((sym, openVal, closeVal) => {
+    const aliases = getSymbolAliases(sym);
+    if (typeof openVal === "number" && openVal > 0) {
+      setDailyOpens((prev) => {
+        const next = { ...prev };
+        for (const a of aliases) next[a] = openVal;
+        try {
+          const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => typeof v === "number" && v > 0));
+          localStorage.setItem("ts_daily_opens", JSON.stringify(clean));
+        } catch {}
+        return next;
+      });
+    }
+    if (typeof closeVal === "number" && closeVal > 0) {
+      setFallbackPrices((prev) => {
+        const next = { ...prev };
+        for (const a of aliases) next[a] = closeVal;
+        try {
+          const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => typeof v === "number" && v > 0));
+          localStorage.setItem("ts_fallback_prices", JSON.stringify(clean));
+        } catch {}
+        return next;
+      });
+    }
   }, []);
 
   useEffect(() => {
     const syms = list?.symbols || [];
     syms.forEach((sym) => {
-      if (typeof dailyOpens[sym] === "number" || dailyOpens[sym] === "loading") return;
+      const existingOpen = resolveAliasValue(sym, dailyOpens);
+      const existingPrice = resolveAliasValue(sym, fallbackPrices);
+      if (typeof existingOpen === "number" && typeof existingPrice === "number") return;
+      if (dailyOpens[sym] === "loading") return;
+
       setDailyOpens((prev) => ({ ...prev, [sym]: "loading" }));
-      fetch(`/api/rates?symbol=${sym}&tf=D1&count=1`)
+      fetch(`/api/rates?symbol=${encodeURIComponent(sym)}&tf=D1&count=1`)
         .then((r) => r.json())
         .then((data) => {
           if (data.ok && data.bars?.length > 0) {
-            updateDailyOpen(sym, data.bars[0].o);
+            const b = data.bars[0];
+            updateSymbolRates(sym, b.o, b.c);
           } else {
-            // Check localStorage bars cache as fallback
+            // Check localStorage bars cache as fallback across aliases and timeframes
+            let foundOpen = null;
+            let foundClose = null;
             try {
               const bc = JSON.parse(localStorage.getItem("ts_bars_cache") || "{}");
-              const d1Bars = bc[`${sym}:D1`]?.bars;
-              if (d1Bars && d1Bars.length > 0 && d1Bars[0].open) {
-                updateDailyOpen(sym, d1Bars[0].open);
-                return;
+              const aliases = getSymbolAliases(sym);
+              for (const a of aliases) {
+                const d1Bars = bc[`${a}:D1`]?.bars;
+                if (d1Bars && d1Bars.length > 0 && d1Bars[0].open) {
+                  foundOpen = d1Bars[0].open;
+                }
+                for (const tf of ["M5", "M1", "M15", "H1", "H4", "D1"]) {
+                  const tfBars = bc[`${a}:${tf}`]?.bars;
+                  if (tfBars && tfBars.length > 0 && tfBars[tfBars.length - 1]?.close) {
+                    foundClose = tfBars[tfBars.length - 1].close;
+                    break;
+                  }
+                }
               }
             } catch {}
-            setDailyOpens((prev) => (typeof prev[sym] === "number" ? prev : { ...prev, [sym]: null }));
+
+            if (foundOpen || foundClose) {
+              updateSymbolRates(sym, foundOpen, foundClose);
+            } else {
+              setDailyOpens((prev) => (typeof prev[sym] === "number" ? prev : { ...prev, [sym]: null }));
+            }
           }
         })
         .catch(() => {
+          let foundOpen = null;
+          let foundClose = null;
           try {
             const bc = JSON.parse(localStorage.getItem("ts_bars_cache") || "{}");
-            const d1Bars = bc[`${sym}:D1`]?.bars;
-            if (d1Bars && d1Bars.length > 0 && d1Bars[0].open) {
-              updateDailyOpen(sym, d1Bars[0].open);
-              return;
+            const aliases = getSymbolAliases(sym);
+            for (const a of aliases) {
+              const d1Bars = bc[`${a}:D1`]?.bars;
+              if (d1Bars && d1Bars.length > 0 && d1Bars[0].open) {
+                foundOpen = d1Bars[0].open;
+              }
+              for (const tf of ["M5", "M1", "M15", "H1", "H4", "D1"]) {
+                const tfBars = bc[`${a}:${tf}`]?.bars;
+                if (tfBars && tfBars.length > 0 && tfBars[tfBars.length - 1]?.close) {
+                  foundClose = tfBars[tfBars.length - 1].close;
+                  break;
+                }
+              }
             }
           } catch {}
-          setDailyOpens((prev) => (typeof prev[sym] === "number" ? prev : { ...prev, [sym]: null }));
+
+          if (foundOpen || foundClose) {
+            updateSymbolRates(sym, foundOpen, foundClose);
+          } else {
+            setDailyOpens((prev) => (typeof prev[sym] === "number" ? prev : { ...prev, [sym]: null }));
+          }
         });
     });
-  }, [list?.symbols, updateDailyOpen]);
+  }, [list?.symbols, dailyOpens, fallbackPrices, updateSymbolRates]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -627,105 +689,110 @@ export default function Watchlist({
           </div>
         )}
 
-        {list && renderedSymbols.map((sym, i) => (
-          <WatchRow
-            key={sym + i}
-            sym={sym}
-            isMobile={isMobile}
-            tick={ticks[sym]}
-            dailyOpen={typeof dailyOpens[sym] === "number" ? dailyOpens[sym] : null}
-            current={sym === symbol}
-            hasAlert={activeAlertSymbols.has(sym)}
-            onJump={() => setSymbol(sym)}
-            onDoubleClick={() => { if (onDoubleJump) onDoubleJump(sym); }}
-            onRemove={() => {
-              if (list.isVirtual) {
-                setSymbolFlags(p => {
-                  const next = { ...p };
-                  delete next[sym];
-                  return next;
-                });
-              } else {
-                onRemoveSymbol(list._id, sym);
-              }
-            }}
-            dragging={drag === sym}
-            dropTarget={over === sym && drag && drag !== sym}
-            onDragStart={(e) => {
-              try {
-                e.dataTransfer.setData("text/plain", sym);
-                e.dataTransfer.effectAllowed = "move";
-              } catch {}
-              setDrag(sym);
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              try { e.dataTransfer.dropEffect = "move"; } catch {}
-              if (over !== sym) setOver(sym);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              setOver((o) => (o === sym ? null : o));
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (drag && drag !== sym) reorder(list, drag, sym, onReorder);
-              setDrag(null); setOver(null);
-            }}
-            onDragEnd={(e) => {
-              e.preventDefault();
-              setDrag(null); setOver(null);
-            }}
-            onGripPointerDown={(e, gripSym) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Start touch drag immediately when grip is pressed
-              setDrag(gripSym);
-              const rowEls = document.querySelectorAll(".wl-row-item");
-              const onMove = (ev) => {
-                const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
-                for (const el of rowEls) {
-                  const rect = el.getBoundingClientRect();
-                  if (clientY >= rect.top && clientY <= rect.bottom) {
-                    const hSym = el.dataset.sym;
-                    if (hSym && hSym !== gripSym) setOver(hSym);
-                    break;
-                  }
+        {list && renderedSymbols.map((sym, i) => {
+          const resolvedTick = resolveAliasValue(sym, ticks);
+          const resolvedOpen = resolveAliasValue(sym, dailyOpens);
+          const resolvedFallback = resolveAliasValue(sym, fallbackPrices);
+          return (
+            <WatchRow
+              key={sym + i}
+              sym={sym}
+              isMobile={isMobile}
+              tick={resolvedTick}
+              dailyOpen={typeof resolvedOpen === "number" ? resolvedOpen : null}
+              fallbackPriceProp={typeof resolvedFallback === "number" ? resolvedFallback : null}
+              current={sym === symbol}
+              hasAlert={activeAlertSymbols.has(sym)}
+              onJump={() => setSymbol(sym)}
+              onDoubleClick={() => { if (onDoubleJump) onDoubleJump(sym); }}
+              onRemove={() => {
+                if (list.isVirtual) {
+                  setSymbolFlags(p => {
+                    const next = { ...p };
+                    delete next[sym];
+                    return next;
+                  });
+                } else {
+                  onRemoveSymbol(list._id, sym);
                 }
-              };
-              const onUp = (ev) => {
-                const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
-                let dropSym = null;
-                for (const el of rowEls) {
-                  const rect = el.getBoundingClientRect();
-                  if (clientY >= rect.top && clientY <= rect.bottom) {
-                    dropSym = el.dataset.sym;
-                    break;
-                  }
-                }
-                if (dropSym && dropSym !== gripSym) reorder(list, gripSym, dropSym, onReorder);
+              }}
+              dragging={drag === sym}
+              dropTarget={over === sym && drag && drag !== sym}
+              onDragStart={(e) => {
+                try {
+                  e.dataTransfer.setData("text/plain", sym);
+                  e.dataTransfer.effectAllowed = "move";
+                } catch {}
+                setDrag(sym);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try { e.dataTransfer.dropEffect = "move"; } catch {}
+                if (over !== sym) setOver(sym);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setOver((o) => (o === sym ? null : o));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (drag && drag !== sym) reorder(list, drag, sym, onReorder);
                 setDrag(null); setOver(null);
-                window.removeEventListener("pointermove", onMove);
-                window.removeEventListener("pointerup", onUp);
-                window.removeEventListener("touchmove", onMove);
-                window.removeEventListener("touchend", onUp);
-              };
-              window.addEventListener("pointermove", onMove, { passive: true });
-              window.addEventListener("pointerup", onUp);
-              window.addEventListener("touchmove", onMove, { passive: true });
-              window.addEventListener("touchend", onUp);
-            }}
-            flag={symbolFlags?.[sym]}
-            onFlag={(color) => setSymbolFlags(p => {
-              const next = { ...p };
-              if (color) next[sym] = color;
-              else delete next[sym];
-              return next;
-            })}
-          />
-        ))}
+              }}
+              onDragEnd={() => {
+                setDrag(null); setOver(null);
+              }}
+              onGripPointerDown={(e, gripSym) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Start touch drag immediately when grip is pressed
+                setDrag(gripSym);
+                const rowEls = document.querySelectorAll(".wl-row-item");
+                const onMove = (ev) => {
+                  const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+                  for (const el of rowEls) {
+                    const rect = el.getBoundingClientRect();
+                    if (clientY >= rect.top && clientY <= rect.bottom) {
+                      const hSym = el.dataset.sym;
+                      if (hSym && hSym !== gripSym) setOver(hSym);
+                      break;
+                    }
+                  }
+                };
+                const onUp = (ev) => {
+                  const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+                  let dropSym = null;
+                  for (const el of rowEls) {
+                    const rect = el.getBoundingClientRect();
+                    if (clientY >= rect.top && clientY <= rect.bottom) {
+                      dropSym = el.dataset.sym;
+                      break;
+                    }
+                  }
+                  if (dropSym && dropSym !== gripSym) reorder(list, gripSym, dropSym, onReorder);
+                  setDrag(null); setOver(null);
+                  window.removeEventListener("pointermove", onMove);
+                  window.removeEventListener("pointerup", onUp);
+                  window.removeEventListener("touchmove", onMove);
+                  window.removeEventListener("touchend", onUp);
+                };
+                window.addEventListener("pointermove", onMove, { passive: true });
+                window.addEventListener("pointerup", onUp);
+                window.addEventListener("touchmove", onMove, { passive: true });
+                window.addEventListener("touchend", onUp);
+              }}
+              flag={symbolFlags?.[sym]}
+              onFlag={(color) => setSymbolFlags(p => {
+                const next = { ...p };
+                if (color) next[sym] = color;
+                else delete next[sym];
+                return next;
+              })}
+            />
+          );
+        })}
       </div>
 
       {editModalOpen && list && (
@@ -926,7 +993,7 @@ async function reorder(list, fromSym, toSym, onReorder) {
 }
 
 function WatchRow({
-  sym, tick, dailyOpen, current, hasAlert, onJump, onDoubleClick, onRemove,
+  sym, tick, dailyOpen, fallbackPriceProp, current, hasAlert, onJump, onDoubleClick, onRemove,
   dragging, dropTarget, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
   onGripPointerDown, flag, onFlag, isMobile
 }) {
@@ -992,13 +1059,20 @@ function WatchRow({
     else if (flag === "yellow") bgColor = "rgba(255, 235, 59, 0.06)";
   }
 
-  let fallbackPrice = null;
-  if (bid == null && typeof window !== "undefined") {
+  let fallbackPrice = fallbackPriceProp;
+  if (bid == null && fallbackPrice == null && typeof window !== "undefined") {
     try {
       const bc = JSON.parse(localStorage.getItem("ts_bars_cache") || "{}");
-      const symBars = bc[`${sym}:M5`]?.bars || bc[`${sym}:D1`]?.bars || bc[`${sym}:H1`]?.bars;
-      if (symBars && symBars.length > 0) {
-        fallbackPrice = symBars[symBars.length - 1].close;
+      const aliases = getSymbolAliases(sym);
+      for (const a of aliases) {
+        for (const tf of ["M5", "M1", "M15", "H1", "H4", "D1", "M30"]) {
+          const symBars = bc[`${a}:${tf}`]?.bars;
+          if (symBars && symBars.length > 0 && typeof symBars[symBars.length - 1]?.close === "number") {
+            fallbackPrice = symBars[symBars.length - 1].close;
+            break;
+          }
+        }
+        if (fallbackPrice != null) break;
       }
     } catch {}
   }
