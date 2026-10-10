@@ -292,7 +292,7 @@ export default function ColorPicker({ value, onChange, label, size = 20 }) {
     emit(hsv.h, hsv.s, hsv.v, x);
   };
 
-  // Global mouse up / move
+  // Global pointer up / move (supports both mouse and touch)
   useEffect(() => {
     if (!open) return;
     const onMove = (e) => {
@@ -301,9 +301,14 @@ export default function ColorPicker({ value, onChange, label, size = 20 }) {
       if (alphaDrag.current) handleAlphaInteract(e, alphaRef.current);
     };
     const onUp = () => { svDrag.current = false; hueDrag.current = false; alphaDrag.current = false; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, [open, hsv, alpha]); // eslint-disable-line
 
   // Reposition on window resize or scroll
@@ -430,7 +435,8 @@ export default function ColorPicker({ value, onChange, label, size = 20 }) {
               ref={svRef}
               width={210}
               height={140}
-              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
+              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair", touchAction: "none" }}
+              onPointerDown={(e) => { e.preventDefault(); svDrag.current = true; handleSVInteract(e, svRef.current); }}
               onMouseDown={(e) => { svDrag.current = true; handleSVInteract(e, svRef.current); }}
               onClick={(e) => handleSVInteract(e, svRef.current)}
             />
@@ -449,7 +455,8 @@ export default function ColorPicker({ value, onChange, label, size = 20 }) {
               ref={hueRef}
               width={210}
               height={12}
-              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
+              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair", touchAction: "none" }}
+              onPointerDown={(e) => { e.preventDefault(); hueDrag.current = true; handleHueInteract(e, hueRef.current); }}
               onMouseDown={(e) => { hueDrag.current = true; handleHueInteract(e, hueRef.current); }}
               onClick={(e) => handleHueInteract(e, hueRef.current)}
             />
@@ -467,7 +474,8 @@ export default function ColorPicker({ value, onChange, label, size = 20 }) {
               ref={alphaRef}
               width={210}
               height={12}
-              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
+              style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair", touchAction: "none" }}
+              onPointerDown={(e) => { e.preventDefault(); alphaDrag.current = true; handleAlphaInteract(e, alphaRef.current); }}
               onMouseDown={(e) => { alphaDrag.current = true; handleAlphaInteract(e, alphaRef.current); }}
               onClick={(e) => handleAlphaInteract(e, alphaRef.current)}
             />

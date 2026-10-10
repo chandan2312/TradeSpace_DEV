@@ -3,115 +3,22 @@ import { X } from "lucide-react";
 import { useChartSettings, useRecentColors, addRecentColor, switchTheme } from "../lib/chartSettings";
 import BrokerSymbolMapping from "./BrokerSymbolMapping";
 
-function parseColor(val) {
-  if (!val) return { hex: "#ffffff", alpha: 100 };
-  if (val.startsWith("rgba")) {
-    const match = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-    if (match) {
-      const r = parseInt(match[1]).toString(16).padStart(2, '0');
-      const g = parseInt(match[2]).toString(16).padStart(2, '0');
-      const b = parseInt(match[3]).toString(16).padStart(2, '0');
-      const a = match[4] ? Math.round(parseFloat(match[4]) * 100) : 100;
-      return { hex: `#${r}${g}${b}`, alpha: a };
-    }
-  }
-  if (val.startsWith("#")) {
-    const hex = val.substring(0, 7);
-    let alpha = 100;
-    if (val.length === 9) {
-      alpha = Math.round((parseInt(val.substring(7, 9), 16) / 255) * 100);
-    }
-    return { hex, alpha };
-  }
-  return { hex: "#ffffff", alpha: 100 };
-}
+import ModernColorPicker from "./ColorPicker";
 
-function buildColor(hex, alpha) {
-  if (alpha === 100) return hex;
-  const aHex = Math.round((alpha / 100) * 255).toString(16).padStart(2, '0');
-  return `${hex}${aHex}`;
-}
-
-const ColorPicker = ({ label, settingKey, showAlpha, settings, handleChange }) => {
-  const { hex, alpha } = parseColor(settings[settingKey]);
-  const [open, setOpen] = useState(false);
-  const popoverRef = useRef();
-  const recentColors = useRecentColors();
-
-  // Close popup on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  // Live update the chart
-  const handleLiveChange = (colorStr) => {
-    handleChange(settingKey, buildColor(colorStr, alpha));
-  };
-
-  // Add to recents ONLY when finished picking (dialog closes)
-  const handleFinishedPicking = (colorStr) => {
-    addRecentColor(colorStr);
-  };
-
+const ColorPicker = ({ label, settingKey, settings, handleChange }) => {
+  const val = settings[settingKey] || "#ffffff";
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12, position: "relative" }}>
-      <label style={{ fontSize: 13, color: "var(--text-muted)", flex: 1 }}>{label}</label>
-      
-      {/* The main swatch that opens the popup */}
-      <div 
-        onClick={() => setOpen(!open)}
-        style={{ width: 24, height: 24, borderRadius: 4, background: buildColor(hex, alpha), cursor: "pointer", border: "1px solid var(--border-hi)", flexShrink: 0 }}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12 }}>
+      {label ? <label style={{ fontSize: 13, color: "var(--text-muted)", flex: 1 }}>{label}</label> : null}
+      <ModernColorPicker
+        value={val}
+        onChange={(newColor) => {
+          handleChange(settingKey, newColor);
+          addRecentColor(newColor);
+        }}
+        size={24}
+        label={label || settingKey}
       />
-
-      {open && (
-        <div ref={popoverRef} style={{
-          position: "absolute", top: 28, right: 0, background: "var(--panel)", border: "1px solid var(--border-hi)",
-          borderRadius: 8, padding: 12, zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", width: 220
-        }}>
-          
-          {/* Custom OS Color Picker Button */}
-          <div style={{ position: "relative", height: 32, borderRadius: 6, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 12, overflow: "hidden" }}>
-             <span style={{ fontSize: 12, color: "var(--text)", pointerEvents: "none" }}>Open Color Map</span>
-             <input 
-               type="color" 
-               value={hex} 
-               onChange={(e) => handleLiveChange(e.target.value)} 
-               onBlur={(e) => handleFinishedPicking(e.target.value)}
-               style={{ opacity: 0, position: "absolute", inset: -10, width: "150%", height: "150%", cursor: "pointer" }} 
-             />
-          </div>
-
-          <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-
-          {/* Recent Colors */}
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>Recently Used</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: showAlpha ? 12 : 0 }}>
-            {recentColors.map(c => (
-              <div key={c} onClick={() => { handleLiveChange(c); handleFinishedPicking(c); setOpen(false); }} style={{
-                width: 20, height: 20, borderRadius: 4, background: c, cursor: "pointer", boxSizing: "border-box",
-                border: hex === c ? "2px solid var(--accent)" : "1px solid transparent"
-              }} />
-            ))}
-          </div>
-
-          {/* Opacity */}
-          {showAlpha && (
-            <>
-              <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)", width: 40 }}>Opacity</span>
-                <input type="range" min="0" max="100" value={alpha} onChange={(e) => handleChange(settingKey, buildColor(hex, parseInt(e.target.value)))} style={{ flex: 1, accentColor: "var(--accent)" }} />
-                <span style={{ fontSize: 11, color: "var(--text-muted)", width: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{alpha}%</span>
-              </div>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 };
