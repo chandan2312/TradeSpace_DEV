@@ -1,13 +1,20 @@
 import { getCols } from "@/lib/mongo";
 import { broadcast } from "@/lib/realtime";
 import { json } from "@/lib/http";
+import { toCanonicalSymbol } from "@/lib/symbols/mapping";
+import { getSymbolAliases } from "@/lib/watchlistAliases";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req) {
-  const symbol = req.nextUrl.searchParams.get("symbol");
+  const rawSymbol = req.nextUrl.searchParams.get("symbol");
   const { alertsCol } = await getCols();
-  const filter = symbol ? { symbol: String(symbol).toUpperCase() } : {};
+  let filter = {};
+  if (rawSymbol) {
+    const canon = toCanonicalSymbol(rawSymbol);
+    const aliases = getSymbolAliases(rawSymbol);
+    filter = { symbol: { $in: Array.from(new Set([rawSymbol, rawSymbol.toUpperCase(), canon, ...aliases])) } };
+  }
   const alerts = await alertsCol.find(filter).sort({ createdAt: -1 }).toArray();
   return json({ ok: true, alerts });
 }
@@ -25,8 +32,9 @@ export async function POST(req) {
   }
 
   const { alertsCol } = await getCols();
+  const canonicalSym = toCanonicalSymbol(symbol);
   const alert = {
-    symbol: String(symbol).toUpperCase(),
+    symbol: canonicalSym,
     price: Number(body.price),
     condition: body.condition,
     rating: body.rating || null,
@@ -46,12 +54,14 @@ export async function POST(req) {
 
 export async function DELETE(req) {
   const { searchParams } = new URL(req.url);
-  const symbol = searchParams.get("symbol");
+  const rawSymbol = searchParams.get("symbol");
   const filter = searchParams.get("filter") || "all";
-  if (!symbol) return json({ ok: false, error: "symbol required" }, 400);
+  if (!rawSymbol) return json({ ok: false, error: "symbol required" }, 400);
 
+  const canon = toCanonicalSymbol(rawSymbol);
+  const aliases = getSymbolAliases(rawSymbol);
   const { alertsCol } = await getCols();
-  const query = { symbol: String(symbol).toUpperCase() };
+  const query = { symbol: { $in: Array.from(new Set([rawSymbol, rawSymbol.toUpperCase(), canon, ...aliases])) } };
   if (filter === "star") {
     query.rating = { $ne: null };
   } else if (filter === "normal") {

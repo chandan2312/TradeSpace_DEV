@@ -359,6 +359,26 @@ export default function Watchlist({
     });
   }, [list?.symbols, dailyOpens, fallbackPrices, updateSymbolRates]);
 
+  // Reactive refresh when broker symbol mapping is updated in settings
+  useEffect(() => {
+    const onMappingUpdated = () => {
+      const syms = list?.symbols || [];
+      syms.forEach((sym) => {
+        fetch(`/api/rates?symbol=${encodeURIComponent(sym)}&tf=D1&count=1`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.ok && data.bars?.length > 0) {
+              const b = data.bars[0];
+              updateSymbolRates(sym, b.o, b.c);
+            }
+          })
+          .catch(() => {});
+      });
+    };
+    window.addEventListener("ts_symbol_mapping_updated", onMappingUpdated);
+    return () => window.removeEventListener("ts_symbol_mapping_updated", onMappingUpdated);
+  }, [list?.symbols, updateSymbolRates]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;

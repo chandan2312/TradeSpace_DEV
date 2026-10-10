@@ -1,6 +1,7 @@
 import { getCols, allWatchlists } from "@/lib/mongo";
 import { broadcast } from "@/lib/realtime";
 import { json, oid } from "@/lib/http";
+import { toCanonicalSymbol } from "@/lib/symbols/mapping";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export async function POST(req, { params }) {
   if (!_id) return json({ ok: false, error: "invalid id" }, 400);
   const body = await req.json();
   const symbols = Array.isArray(body?.symbols)
-    ? body.symbols.map((s) => String(s).toUpperCase()).slice(0, 500)
+    ? body.symbols.map((s) => toCanonicalSymbol(String(s))).slice(0, 500)
     : null;
   if (!symbols) return json({ ok: false, error: "symbols array required" }, 400);
 

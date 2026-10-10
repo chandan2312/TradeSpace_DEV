@@ -5,6 +5,7 @@ import { getMarketContext, SMT_PAIRS } from "@/lib/bias/context";
 import { getNews } from "@/lib/bias/news";
 import { confirmSetups } from "@/lib/bias/group";
 import { json } from "@/lib/http";
+import { toCanonicalSymbol } from "@/lib/symbols/mapping";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,8 @@ const MAX_SYMBOLS = 16;
 const FULL_MARKET_SYMBOLS = [
   "EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDJPY", "USDCHF", "USDCAD",
   "EURJPY", "GBPJPY", "AUDJPY", "EURGBP", "EURAUD", "GBPAUD",
-  "US30", "NAS100", "US500", "GER40", "UK100",
-  "XAUUSD", "XAGUSD", "WTI",
+  "DJ30", "NAS100", "SP500", "GER40", "UK100",
+  "XAUUSD", "XAGUSD", "USOIL",
   "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD"
 ];
 
@@ -31,7 +32,7 @@ export async function GET(req) {
       const lists = await allWatchlists().catch(() => []);
       symbols = [...new Set([...FULL_MARKET_SYMBOLS, ...lists.flatMap((w) => w.symbols || [])])];
     } else {
-      symbols = rawSyms.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+      symbols = rawSyms.split(",").map((s) => toCanonicalSymbol(s.trim())).filter(Boolean);
       if (!symbols.length) {
         const lists = await allWatchlists().catch(() => []);
         symbols = [...new Set(lists.flatMap((w) => w.symbols || []))];

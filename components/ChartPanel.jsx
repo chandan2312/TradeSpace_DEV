@@ -809,6 +809,17 @@ export default function ChartPanel({
     };
   }, [symbol, tf, barsCache, applyBars, loadBars]);
 
+  // Reactive reload when broker symbol mapping is updated in settings
+  useEffect(() => {
+    const onMappingUpdated = () => {
+      fetchGenerationRef.current += 1;
+      const key = `${symbol}:${tf}`;
+      loadBars(key, fetchGenerationRef.current, false);
+    };
+    window.addEventListener("ts_symbol_mapping_updated", onMappingUpdated);
+    return () => window.removeEventListener("ts_symbol_mapping_updated", onMappingUpdated);
+  }, [symbol, tf, loadBars]);
+
   const reconcileBackgroundGaps = useCallback(() => {
     const key = `${symbol}:${tf}`;
     if (activeFetchKeyRef.current !== key) return;
