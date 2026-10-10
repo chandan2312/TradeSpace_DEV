@@ -393,24 +393,31 @@ export default function ChartPanel({
     const series = seriesRef.current;
     if (!chart || !series) return;
 
+    const isMobileScreen = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
     chart.applyOptions({
       layout: { 
         background: settings.bgType === "Solid" 
           ? { type: "solid", color: settings.bgColor } 
           : { type: "gradient", topColor: settings.bgGradientTop, bottomColor: settings.bgGradientBottom },
         textColor: settings.textColor,
-        fontSize: 10,
+        fontSize: isMobileScreen ? 8.5 : 10,
       },
       grid: { 
         vertLines: { color: settings.gridVertColor, visible: settings.gridVertEnabled !== false }, 
         horzLines: { color: settings.gridHorzColor, visible: settings.gridHorzEnabled !== false } 
       },
       // Note: watermark was moved to a plugin in LWC v5; skip here to avoid errors.
-      timeScale: { borderColor: settings.linesColor },
-      rightPriceScale: { borderColor: settings.linesColor },
+      timeScale: { 
+        borderColor: settings.linesColor,
+        rightOffset: isMobileScreen ? 6 : 12,
+      },
+      rightPriceScale: { 
+        borderColor: settings.linesColor,
+        scaleMargins: { top: 0.08, bottom: 0.08 },
+        alignLabels: true,
+      },
     });
 
-    const isMobileScreen = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
     series.applyOptions({
       upColor: settings.upColor,
       downColor: settings.downColor,
@@ -447,13 +454,14 @@ export default function ChartPanel({
       const { createChart, CrosshairMode, CandlestickSeries } = await import("lightweight-charts");
       const { DrawingManager } = await import("lightweight-charts-drawing");
       if (disposed || !wrapRef.current) return;
+      const isMobileInit = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
       const chart = createChart(wrapRef.current, {
         layout: { 
           background: settings.bgType === "Solid" 
             ? { type: "solid", color: settings.bgColor } 
             : { type: "gradient", topColor: settings.bgGradientTop, bottomColor: settings.bgGradientBottom },
           textColor: settings.textColor,
-          fontSize: (typeof window !== "undefined" && window.innerWidth <= 768) ? 9 : 10,
+          fontSize: isMobileInit ? 8.5 : 10,
         },
         grid: { 
           vertLines: { color: settings.gridVertColor, visible: settings.gridVertEnabled !== false }, 
@@ -461,7 +469,7 @@ export default function ChartPanel({
         },
         crosshair: { mode: CrosshairMode.Normal },
         timeScale: { 
-          rightOffset: 12, 
+          rightOffset: isMobileInit ? 6 : 12, 
           timeVisible: true, 
           secondsVisible: false, 
           borderColor: settings.linesColor,
@@ -499,11 +507,10 @@ export default function ChartPanel({
         rightPriceScale: { 
           borderColor: settings.linesColor,
           scaleMargins: { top: 0.08, bottom: 0.08 },
+          alignLabels: true,
         },
         autoSize: true,
       });
-
-      const isMobileInit = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
       // LWC v5: addSeries(SeriesType, options) replaces addCandlestickSeries()
       const series = chart.addSeries(CandlestickSeries, {
         upColor: settings.upColor, 
