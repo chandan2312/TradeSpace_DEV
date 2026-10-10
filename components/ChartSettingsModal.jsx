@@ -131,6 +131,21 @@ const Checkbox = ({ label, settingKey, settings, handleChange }) => (
 export default function ChartSettingsModal({ onClose, initialTab = "Symbol" }) {
   const [settings, updateSettings] = useChartSettings();
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const m = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
+      setIsMobile(m);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    window.addEventListener("orientationchange", checkMobile);
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+      window.removeEventListener("orientationchange", checkMobile);
+    };
+  }, []);
 
   const TABS = ["Symbol", "Broker Mapping", "Canvas", "Advanced"];
 
@@ -142,44 +157,106 @@ export default function ChartSettingsModal({ onClose, initialTab = "Symbol" }) {
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
       display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.6)", padding: "16px"
+      background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+      padding: isMobile ? "8px" : "16px"
     }}>
       <div style={{
-        background: "var(--panel)", width: 780, maxWidth: "95vw", height: 560, maxHeight: "92vh", borderRadius: 12,
-        display: "flex", flexDirection: "column", border: "1px solid var(--border)",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.5)", overflow: "hidden"
+        background: "var(--panel)",
+        width: isMobile ? "100%" : 780,
+        maxWidth: isMobile ? "100%" : "95vw",
+        height: isMobile ? "94vh" : 560,
+        maxHeight: isMobile ? "96vh" : "92vh",
+        borderRadius: isMobile ? 12 : 12,
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid var(--border)",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+        overflow: "hidden"
       }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Chart settings</h2>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: isMobile ? "12px 16px" : "16px 24px",
+          borderBottom: "1px solid var(--border)",
+          flexShrink: 0
+        }}>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 18, fontWeight: 600, color: "var(--text)" }}>Chart settings</h2>
           <X size={20} style={{ cursor: "pointer", color: "var(--text-muted)" }} onClick={onClose} />
         </div>
 
-        {/* Body */}
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          {/* Sidebar */}
-          <div style={{ width: 160, borderRight: "1px solid var(--border)", padding: "12px 0", overflowY: "auto" }}>
+        {/* Mobile Horizontal Tabs */}
+        {isMobile && (
+          <div style={{
+            display: "flex",
+            flexDirection: "row",
+            overflowX: "auto",
+            borderBottom: "1px solid var(--border)",
+            padding: "8px 12px",
+            gap: 8,
+            background: "rgba(0,0,0,0.18)",
+            flexShrink: 0,
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none"
+          }}>
             {TABS.map((t) => (
-              <div
+              <button
                 key={t}
                 onClick={() => setActiveTab(t)}
                 style={{
-                  padding: "10px 24px", cursor: "pointer", fontSize: 14,
-                  background: activeTab === t ? "var(--accent-soft)" : "transparent",
-                  color: activeTab === t ? "var(--text)" : "var(--text-muted)",
-                  borderLeft: activeTab === t ? "3px solid var(--accent)" : "3px solid transparent",
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: activeTab === t ? 600 : 500,
+                  whiteSpace: "nowrap",
+                  borderRadius: 6,
+                  background: activeTab === t ? "var(--accent)" : "rgba(255,255,255,0.04)",
+                  color: activeTab === t ? "#ffffff" : "var(--text-muted)",
+                  border: activeTab === t ? "1px solid var(--accent)" : "1px solid var(--border)",
+                  flexShrink: 0,
+                  transition: "all 0.15s ease",
+                  outline: "none"
                 }}
               >
                 {t}
-              </div>
+              </button>
             ))}
           </div>
+        )}
+
+        {/* Body */}
+        <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" : "row" }}>
+          {/* Desktop Sidebar */}
+          {!isMobile && (
+            <div style={{ width: 160, borderRight: "1px solid var(--border)", padding: "12px 0", overflowY: "auto", flexShrink: 0 }}>
+              {TABS.map((t) => (
+                <div
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  style={{
+                    padding: "10px 24px", cursor: "pointer", fontSize: 14,
+                    background: activeTab === t ? "var(--accent-soft)" : "transparent",
+                    color: activeTab === t ? "var(--text)" : "var(--text-muted)",
+                    borderLeft: activeTab === t ? "3px solid var(--accent)" : "3px solid transparent",
+                  }}
+                >
+                  {t}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Content */}
-          <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
+          <div style={{
+            flex: 1,
+            padding: isMobile ? "14px 12px" : "24px",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch"
+          }}>
             {activeTab === "Symbol" && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <h3 style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", margin: 0 }}>Candles</h3>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Configure For:</span>
@@ -198,11 +275,11 @@ export default function ChartSettingsModal({ onClose, initialTab = "Symbol" }) {
                   </div>
                 </div>
 
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 16, padding: "4px 8px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 16, padding: "6px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 4 }}>
                   Colors configured below are automatically preserved per theme. Switching themes preserves and recalls custom palettes.
                 </div>
                 
-                <div style={{ display: "flex", gap: 32 }}>
+                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 8 : 32 }}>
                   <div style={{ flex: 1 }}>
                     <ColorPicker label="Body Up" settingKey="upColor" settings={settings} handleChange={handleChange} />
                     <ColorPicker label="Borders Up" settingKey="borderUpColor" settings={settings} handleChange={handleChange} />
@@ -304,8 +381,15 @@ export default function ChartSettingsModal({ onClose, initialTab = "Symbol" }) {
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
-          <button className="primary" onClick={onClose} style={{ padding: "6px 24px" }}>Ok</button>
+        <div style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          padding: isMobile ? "10px 14px" : "16px 24px",
+          borderTop: "1px solid var(--border)",
+          flexShrink: 0,
+          background: isMobile ? "rgba(0,0,0,0.1)" : "transparent"
+        }}>
+          <button className="primary" onClick={onClose} style={{ padding: "6px 24px", width: isMobile ? "100%" : "auto" }}>Ok</button>
         </div>
       </div>
     </div>

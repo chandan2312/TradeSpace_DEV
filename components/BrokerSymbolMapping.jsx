@@ -250,19 +250,19 @@ export default function BrokerSymbolMapping({ onClose, onSaved }) {
         alignItems: "center"
       }}>
         {/* Forex Suffix */}
-        <div style={{ flex: "1 1 280px", minWidth: 260 }}>
+        <div style={{ flex: "1 1 240px", minWidth: 200 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Forex Broker Suffix</span>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>e.g. EURUSD → EURUSD{mapping.forexSuffix || ""}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <input
               type="text"
               value={mapping.forexSuffix ?? ""}
               onChange={(e) => handleForexSuffixChange(e.target.value)}
               placeholder="e.g. .i or .I"
               style={{
-                width: 90,
+                width: 80,
                 background: "var(--bg)",
                 border: "1px solid var(--border)",
                 color: "var(--text)",
@@ -272,7 +272,7 @@ export default function BrokerSymbolMapping({ onClose, onSaved }) {
                 fontFamily: "var(--mono)"
               }}
             />
-            <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {suffixPresets.map((sfx) => (
                 <button
                   key={sfx || "none"}
@@ -435,11 +435,13 @@ export default function BrokerSymbolMapping({ onClose, onSaved }) {
       <div style={{
         flex: 1,
         overflowY: "auto",
+        overflowX: "auto",
+        WebkitOverflowScrolling: "touch",
         border: "1px solid var(--border)",
         borderRadius: 8,
         background: "var(--bg)"
       }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
+        <table style={{ width: "100%", minWidth: 540, borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
           <thead>
             <tr style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>
               <th style={{ padding: "8px 12px" }}>TradeSpace Canonical</th>
