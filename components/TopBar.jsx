@@ -14,8 +14,10 @@ const TF_LABEL = { M1: "1m", M5: "5m", M15: "15m", M30: "30m", H1: "1h", H4: "4h
 const THEME_LIST = [
   { id: "dark", label: "Dark", icon: Moon, desc: "Classic dark mode" },
   { id: "light", label: "Light", icon: Sun, desc: "Clean light mode" },
-  { id: "navyblue", label: "Navy Blue", icon: Compass, desc: "Institutional navy" },
+  { id: "navyblue", label: "Navy", icon: Compass, desc: "Institutional navy" },
   { id: "creamy", label: "Creamy", icon: Coffee, desc: "Warm parchment" },
+  { id: "midnight", label: "Midnight", icon: Moon, desc: "OLED Pitch Black" },
+  { id: "matrix", label: "Matrix", icon: Zap, desc: "Terminal Phosphor" },
 ];
 
 export default function TopBar({ 
@@ -652,58 +654,132 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* Mobile Dropdown Menu */}
+      {/* Mobile Dropdown Menu — Compact Institutional Row Tabs */}
       {mobileMenuOpen && (
         <div style={{
           position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
-          background: "var(--panel)", borderBottom: "1px solid var(--border)",
-          padding: 12, display: "flex", flexDirection: "column", gap: 12,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+          background: "var(--panel)", borderBottom: "1px solid var(--border-hi)",
+          padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          maxHeight: "85vh", overflowY: "auto"
         }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className={showLayoutMenu ? "primary" : "ghost"} onClick={() => setShowLayoutMenu(!showLayoutMenu)} style={{ padding: "4px 8px", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-              <LayoutGrid size={14} /> Layout
+          {/* Row 1: Core Navigation & Cockpit Tabs */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 6 }}>
+            <button
+              className="ghost"
+              onClick={() => { setMobileMenuOpen(false); onOpenAutoCockpit?.(); }}
+              style={{
+                fontSize: 11, padding: "6px 8px", display: "flex", alignItems: "center", gap: 5,
+                borderRadius: 6, fontWeight: 700,
+                background: activeAutoTrades.length > 0
+                  ? (isAutoNetProfit ? "rgba(38, 166, 154, 0.15)" : "rgba(239, 83, 80, 0.15)")
+                  : "var(--panel-2)",
+                border: "1px solid var(--border)",
+                color: activeAutoTrades.length > 0 ? (isAutoNetProfit ? "var(--green)" : "var(--red)") : "var(--text)",
+              }}
+            >
+              <Zap size={13} style={{ color: "var(--accent)" }} />
+              <span>Cockpit</span>
+              {activeAutoTrades.length > 0 && <span style={{ marginLeft: "auto", fontSize: 9 }}>●</span>}
+            </button>
+            <Link
+              href="/autonomous?section=journal"
+              className="ghost"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                fontSize: 11, padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, textDecoration: "none", color: "var(--text)", background: "var(--panel-2)", border: "1px solid var(--border)"
+              }}
+            >
+              <BookOpen size={12} /> <span>Journal</span>
+            </Link>
+            <Link
+              href="/autonomous"
+              className="ghost"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                fontSize: 11, padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, textDecoration: "none", color: "var(--text)", background: "var(--panel-2)", border: "1px solid var(--border)"
+              }}
+            >
+              <Zap size={12} style={{ color: "var(--accent)" }} /> <span>Auto</span>
+            </Link>
+            <button
+              className="ghost"
+              onClick={onToggleBias}
+              style={{
+                fontSize: 11, padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, fontWeight: 700,
+                background: biasEnabled ? "rgba(0, 200, 83, 0.15)" : "var(--panel-2)",
+                color: biasEnabled ? "var(--green)" : "var(--muted)",
+                border: `1px solid ${biasEnabled ? "rgba(0, 200, 83, 0.3)" : "var(--border)"}`
+              }}
+            >
+              <Power size={12} /> <span>{biasEnabled ? "ON" : "OFF"}</span>
+            </button>
+          </div>
+
+          {/* Row 2: Analysis & Views Tabs */}
+          <div style={{ display: "grid", gridTemplateColumns: layout === "1" ? "repeat(5, 1fr)" : "repeat(4, 1fr)", gap: 6 }}>
+            <button
+              className={showLayoutMenu ? "primary" : "ghost"}
+              onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+              style={{
+                fontSize: 11, padding: "6px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, border: "1px solid var(--border)"
+              }}
+            >
+              <LayoutGrid size={12} /> <span>Grid</span>
+            </button>
+            <button
+              className="ghost"
+              onClick={() => { setMobileMenuOpen(false); onOpenCorrelated?.(); }}
+              style={{
+                fontSize: 11, padding: "6px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, border: "1px solid var(--border)", background: "var(--panel-2)"
+              }}
+            >
+              <LayoutGrid size={12} color="var(--accent)" /> <span>Pairs</span>
+            </button>
+            <button
+              className="ghost"
+              onClick={() => { setMobileMenuOpen(false); onOpenStrength?.(); }}
+              style={{
+                fontSize: 11, padding: "6px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, border: "1px solid var(--border)", background: "var(--panel-2)"
+              }}
+            >
+              <Activity size={12} /> <span>CSM</span>
+            </button>
+            <button
+              className="ghost"
+              onClick={() => { setMobileMenuOpen(false); onOpenMarketBias?.(); }}
+              style={{
+                fontSize: 11, padding: "6px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                borderRadius: 6, border: "1px solid var(--border)", background: "var(--panel-2)"
+              }}
+            >
+              <Compass size={12} /> <span>Bias</span>
             </button>
             {layout === "1" && (
-              <button className="ghost" onClick={() => { onOpenLoop(); setMobileMenuOpen(false); }} title="Start Slideshow Loop" style={{ padding: "4px 8px", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                <Repeat size={14} /> Loop
+              <button
+                className="ghost"
+                onClick={() => { setMobileMenuOpen(false); onOpenPip?.(); }}
+                style={{
+                  fontSize: 11, padding: "6px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                  borderRadius: 6, border: "1px solid var(--border)", background: "var(--panel-2)", color: isPipActive ? "var(--brand)" : "inherit"
+                }}
+              >
+                <ExternalLink size={12} /> <span>Pip</span>
               </button>
             )}
-            <IndicatorsMenu indicators={indicators} setIndicators={setIndicators} />
           </div>
 
-          {/* Mobile Theme Selector */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 8 }}>
-            <div style={{ fontSize: 10, opacity: 0.6, textTransform: "uppercase", fontWeight: 700 }}>Color Theme</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {THEME_LIST.map((t) => {
-                const IconComp = t.icon;
-                const isActive = activeTheme === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => { switchTheme(t.id); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", fontSize: 12,
-                      background: isActive ? "var(--accent)" : "var(--panel-2)",
-                      color: isActive ? "#ffffff" : "var(--text)",
-                      border: `1px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
-                      borderRadius: 6, cursor: "pointer", fontWeight: isActive ? 600 : 400,
-                      justifyContent: "center"
-                    }}
-                  >
-                    <IconComp size={14} />
-                    <span>{t.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
+          {/* Layout Configuration Sub-Menu */}
           {showLayoutMenu && (
-            <div ref={mobileLayoutMenuRef} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div ref={mobileLayoutMenuRef} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 8, display: "flex", flexDirection: "column", gap: 10 }}>
               <div>
-                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>Grid</div>
+                <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 6, textTransform: "uppercase", fontWeight: 700 }}>Grid Presets</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {[
                     ["1"],
@@ -736,193 +812,80 @@ export default function TopBar({
               </div>
 
               <div>
-                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Sync Across Charts</div>
+                <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Sync Options</div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <button className={syncOpts.symbol ? "primary" : "ghost"} onClick={() => toggleSync("symbol")} style={{padding: "2px 6px", fontSize: 11}}>SYM</button>
-                  <button className={syncOpts.tf ? "primary" : "ghost"} onClick={() => toggleSync("tf")} style={{padding: "2px 6px", fontSize: 11}}>TF</button>
-                  <button className={syncOpts.time ? "primary" : "ghost"} onClick={() => toggleSync("time")} style={{padding: "2px 6px", fontSize: 11}}>TIME</button>
-                  <button className={syncOpts.crosshair ? "primary" : "ghost"} onClick={() => toggleSync("crosshair")} style={{padding: "2px 6px", fontSize: 11}}>CROSS</button>
-                </div>
-              </div>
-
-              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 11, opacity: 0.6, textTransform: "uppercase", fontWeight: 600 }}>Saved Layouts</div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {loadedLayoutId && (
-                      <button className="ghost" onClick={() => { onUpdateLayout(loadedLayoutId); setShowLayoutMenu(false); setMobileMenuOpen(false); }} title="Save Current" style={{padding: "2px 6px", fontSize: 11}}>Save</button>
-                    )}
-                    <button className="ghost" onClick={() => { onOpenSaveLayout(); setShowLayoutMenu(false); setMobileMenuOpen(false); }} title="Save As New" style={{padding: "2px 6px", fontSize: 11}}>Save As</button>
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 150, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 4, padding: 4 }}>
-                  {savedLayouts && savedLayouts.length > 0 ? savedLayouts.map(l => (
-                    <div key={l._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px", background: l._id === loadedLayoutId ? "rgba(41,98,255,0.15)" : "transparent", borderRadius: 4 }}>
-                      <div onClick={() => { onLoadLayout(l._id); setShowLayoutMenu(false); setMobileMenuOpen(false); }} style={{ cursor: "pointer", flex: 1, fontSize: 12, fontWeight: l._id === loadedLayoutId ? 700 : 400 }}>
-                        {l.name}
-                      </div>
-                      <button className="ghost danger" onClick={(e) => { e.stopPropagation(); onDeleteLayout(l._id); }} style={{ padding: 4 }} title="Delete Layout">
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  )) : (
-                    <div className="muted" style={{ fontSize: 11, padding: 4, textAlign: "center" }}>No saved layouts</div>
-                  )}
+                  <button className={syncOpts.symbol ? "primary" : "ghost"} onClick={() => toggleSync("symbol")} style={{padding: "2px 6px", fontSize: 10}}>SYM</button>
+                  <button className={syncOpts.tf ? "primary" : "ghost"} onClick={() => toggleSync("tf")} style={{padding: "2px 6px", fontSize: 10}}>TF</button>
+                  <button className={syncOpts.time ? "primary" : "ghost"} onClick={() => toggleSync("time")} style={{padding: "2px 6px", fontSize: 10}}>TIME</button>
+                  <button className={syncOpts.crosshair ? "primary" : "ghost"} onClick={() => toggleSync("crosshair")} style={{padding: "2px 6px", fontSize: 10}}>CROSS</button>
                 </div>
               </div>
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button
-              className="ghost"
-              onClick={() => { setMobileMenuOpen(false); onOpenAutoCockpit?.(); }}
-              style={{
-                fontSize: 12,
-                padding: "8px 10px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                background: activeAutoTrades.length > 0
-                  ? (isAutoNetProfit ? "rgba(38, 166, 154, 0.12)" : "rgba(239, 83, 80, 0.12)")
-                  : "var(--panel-2)",
-                border: "1px solid var(--border)",
-                color: activeAutoTrades.length > 0
-                  ? (isAutoNetProfit ? "var(--green)" : "var(--red)")
-                  : "var(--text)",
-                fontWeight: 600,
-              }}
-            >
-              <Zap size={14} style={{ color: "var(--accent)" }} />
-              <span>Live Autonomous Cockpit</span>
-              {activeAutoTrades.length > 0 ? (
-                <span style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>
-                  {activeAutoTrades.length} Active {hasAutoR ? `(${formatR(autoNetR)})` : ""}
-                </span>
-              ) : stagedAutoTrades.length > 0 ? (
-                <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--accent)" }}>
-                  {stagedAutoTrades.length} Staged
-                </span>
-              ) : (
-                <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)" }}>Idle</span>
-              )}
-            </button>
+          {/* Row 3: Overlays & Indicators Segmented Chips */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg)", padding: "4px 6px", borderRadius: 6, border: "1px solid var(--border)" }}>
             <button
               className={indicators?.autoTrades !== false ? "primary" : "ghost"}
-              onClick={() => {
-                setIndicators?.((prev) => ({ ...prev, autoTrades: prev?.autoTrades === false ? true : false }));
-              }}
-              style={{
-                fontSize: 12,
-                padding: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                justifyContent: "flex-start",
-                background: indicators?.autoTrades !== false ? "rgba(41, 98, 255, 0.15)" : "transparent",
-                color: indicators?.autoTrades !== false ? "var(--brand)" : "var(--text)",
-                border: indicators?.autoTrades !== false ? "1px solid rgba(41, 98, 255, 0.3)" : "1px solid transparent",
-                borderRadius: 6
-              }}
+              onClick={() => setIndicators?.(p => ({ ...p, autoTrades: p?.autoTrades === false }))}
+              style={{ flex: 1, fontSize: 10, padding: "4px 6px", borderRadius: 4, fontWeight: 600 }}
             >
-              <Zap size={14} style={{ color: "var(--accent)" }} />
-              <span>Auto Trades Overlay</span>
-              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700 }}>
-                {indicators?.autoTrades !== false ? "ON" : "OFF"}
-              </span>
+              Auto {indicators?.autoTrades !== false ? "ON" : "OFF"}
             </button>
             <button
               className={indicators?.stagedTrades !== false ? "primary" : "ghost"}
-              onClick={() => {
-                setIndicators?.((prev) => ({ ...prev, stagedTrades: prev?.stagedTrades === false ? true : false }));
-              }}
-              style={{
-                fontSize: 12,
-                padding: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                justifyContent: "flex-start",
-                background: indicators?.stagedTrades !== false ? "rgba(245, 158, 11, 0.15)" : "transparent",
-                color: indicators?.stagedTrades !== false ? "#fbbf24" : "var(--text)",
-                border: indicators?.stagedTrades !== false ? "1px solid rgba(245, 158, 11, 0.3)" : "1px solid transparent",
-                borderRadius: 6
-              }}
+              onClick={() => setIndicators?.(p => ({ ...p, stagedTrades: p?.stagedTrades === false }))}
+              style={{ flex: 1, fontSize: 10, padding: "4px 6px", borderRadius: 4, fontWeight: 600 }}
             >
-              <Clock size={14} style={{ color: "#f59e0b" }} />
-              <span>Staged Setups Overlay</span>
-              {symbolStagedCount > 0 && (
-                <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: "#f59e0b", color: "#000", fontWeight: 700 }}>
-                  {symbolStagedCount}
-                </span>
-              )}
-              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700 }}>
-                {indicators?.stagedTrades !== false ? "ON" : "OFF"}
-              </span>
+              Staged {symbolStagedCount > 0 ? `(${symbolStagedCount})` : (indicators?.stagedTrades !== false ? "ON" : "OFF")}
             </button>
             <button
               className={indicators?.radarTrades !== false ? "primary" : "ghost"}
-              onClick={() => {
-                setIndicators?.((prev) => ({ ...prev, radarTrades: prev?.radarTrades === false ? true : false }));
-              }}
-              style={{
-                fontSize: 12,
-                padding: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                justifyContent: "flex-start",
-                background: indicators?.radarTrades !== false ? "rgba(168, 85, 247, 0.15)" : "transparent",
-                color: indicators?.radarTrades !== false ? "#c084fc" : "var(--text)",
-                border: indicators?.radarTrades !== false ? "1px solid rgba(168, 85, 247, 0.3)" : "1px solid transparent",
-                borderRadius: 6
-              }}
+              onClick={() => setIndicators?.(p => ({ ...p, radarTrades: p?.radarTrades === false }))}
+              style={{ flex: 1, fontSize: 10, padding: "4px 6px", borderRadius: 4, fontWeight: 600 }}
             >
-              <Radar size={14} style={{ color: "#c084fc" }} />
-              <span>Radar Ideas Overlay</span>
-              {symbolRadarCount > 0 && (
-                <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: "#a855f7", color: "#ffffff", fontWeight: 700 }}>
-                  {symbolRadarCount}
-                </span>
-              )}
-              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700 }}>
-                {indicators?.radarTrades !== false ? "ON" : "OFF"}
-              </span>
+              Radar {symbolRadarCount > 0 ? `(${symbolRadarCount})` : (indicators?.radarTrades !== false ? "ON" : "OFF")}
             </button>
-            <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenStrength(); }} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start" }}>
-              <Activity size={14} /> Currency Strength Meter
-            </button>
-            <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenCorrelated(); }} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start" }}>
-              <LayoutGrid size={14} /> Correlated Pairs
-            </button>
-            <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenMarketBias(); }} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start" }}>
-              <Activity size={14} /> Master Market Bias
-            </button>
+            <div style={{ flexShrink: 0 }}>
+              <IndicatorsMenu indicators={indicators} setIndicators={setIndicators} />
+            </div>
             {layout === "1" && (
-              <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenPip(); }} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start", color: isPipActive ? "var(--brand)" : "inherit" }}>
-                <ExternalLink size={14} /> {isPipActive ? "Close Pop Out" : "Pop Out Chart"}
+              <button className="ghost" onClick={() => { onOpenLoop(); setMobileMenuOpen(false); }} title="Slideshow Loop" style={{ padding: "4px 6px", borderRadius: 4, fontSize: 10 }}>
+                <Repeat size={12} />
               </button>
             )}
-            <Link href="/autonomous" className="ghost" onClick={() => setMobileMenuOpen(false)} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start", textDecoration: "none", color: "inherit" }}>
-              <Zap size={14} style={{ color: "var(--accent)" }} /> Autonomous
-            </Link>
-            <Link href="/autonomous?section=journal" className="ghost" onClick={() => setMobileMenuOpen(false)} style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start", textDecoration: "none", color: "inherit" }}>
-              <BookOpen size={14} /> Journal
-            </Link>
-            <button 
-              className={biasEnabled ? "primary" : "ghost"} 
-              onClick={onToggleBias} 
-              style={{ fontSize: 12, padding: "8px", display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-start", background: biasEnabled ? "var(--green)" : "transparent", color: biasEnabled ? "#fff" : "var(--muted)" }}
-            >
-              <Power size={14} /> Engine {biasEnabled ? "ON" : "OFF"}
-            </button>
           </div>
 
-          <div style={{ display: "flex", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-            <button className={watchlistOpen ? "primary" : "ghost"} onClick={() => setWatchlistOpen(!watchlistOpen)} style={{ padding: "8px", flex: 1, display: "flex", justifyContent: "center" }}><Sidebar size={16} /></button>
-            <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenAlerts(); }} style={{ padding: "8px", flex: 1, display: "flex", justifyContent: "center" }}><Bell size={16} /></button>
+          {/* Row 4: Theme Segmented Tabs & Panel Toggles */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
+              {THEME_LIST.map((t) => {
+                const isActive = activeTheme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => switchTheme(t.id)}
+                    style={{
+                      fontSize: 10, padding: "4px 7px", borderRadius: 4, cursor: "pointer",
+                      background: isActive ? "var(--accent)" : "var(--panel-2)",
+                      color: isActive ? "#ffffff" : "var(--text-muted)",
+                      border: `1px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
+                      fontWeight: isActive ? 700 : 500,
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button className={watchlistOpen ? "primary" : "ghost"} onClick={() => setWatchlistOpen(!watchlistOpen)} title="Watchlist" style={{ padding: "4px 8px", borderRadius: 4 }}>
+                <Sidebar size={14} />
+              </button>
+              <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenAlerts(); }} title="Alerts" style={{ padding: "4px 8px", borderRadius: 4 }}>
+                <Bell size={14} />
+              </button>
+            </div>
           </div>
         </div>
       )}

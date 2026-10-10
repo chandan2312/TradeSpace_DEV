@@ -5,7 +5,7 @@ import { PatternsPrimitive } from "../lib/patterns/primitive.js";
 import { runPatterns } from "../lib/patterns/index.js";
 import { useDrawings } from "../lib/draw/useDrawings.js";
 import { useChartSettings } from "../lib/chartSettings.js";
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight, ZoomIn, Settings } from "lucide-react";
 import DrawingToolbar from "./DrawingToolbar.jsx";
 import DrawingContextMenu from "./DrawingContextMenu.jsx";
 import DrawingSettings from "./DrawingSettings.jsx";
@@ -88,9 +88,22 @@ class AlertsPrimitive {
         if (!found) startIdx = bars.length - 1; // Start from newest bar if no touch found
         const x = X(startIdx);
         
-        let color = "rgba(255, 152, 0, 0.75)";
-        if (a.status === "triggered") color = "rgba(239, 83, 80, 0.75)";
-        else if (a.chainId) color = getChainColor(a.chainId);
+        // Calibrate alert color with active theme background
+        const domTheme = typeof document !== "undefined" ? document.documentElement.getAttribute("data-theme") : "dark";
+        const isMatrix = domTheme === "matrix";
+        const isLight = domTheme === "light" || domTheme === "creamy";
+
+        let color = isMatrix
+          ? "rgba(0, 255, 102, 0.45)"
+          : isLight
+          ? "rgba(217, 119, 6, 0.55)"
+          : "rgba(245, 158, 11, 0.45)"; // Soft institutional amber
+
+        if (a.status === "triggered") {
+          color = isLight ? "rgba(220, 38, 38, 0.3)" : "rgba(239, 83, 80, 0.3)";
+        } else if (a.chainId) {
+          color = getChainColor(a.chainId);
+        }
         
         return { ...a, x, y, livePrice, color };
       }).filter(n => n.x != null && n.y != null);
@@ -139,17 +152,18 @@ class AlertsPrimitive {
       // Draw individual horizontal lines and badges
       for (const n of renderNodes) {
         let lineColor = n.color;
-        let lineDash = [4, 4];
+        let lineDash = [3, 5];
         
         if (n.rating) {
-          if (n.rating === 3) lineDash = [];
-          else if (n.rating === 2) lineDash = [8, 4];
-          else if (n.rating === 1) lineDash = [4, 4];
+          if (n.rating === 3) lineDash = [6, 2];
+          else if (n.rating === 2) lineDash = [4, 4];
+          else if (n.rating === 1) lineDash = [3, 5];
           
           if (n.status !== "triggered") {
-            lineColor = "#ffb300";
+            const domTheme = typeof document !== "undefined" ? document.documentElement.getAttribute("data-theme") : "dark";
+            lineColor = domTheme === "matrix" ? "rgba(0, 255, 102, 0.55)" : domTheme === "light" || domTheme === "creamy" ? "rgba(217, 119, 6, 0.6)" : "rgba(251, 191, 36, 0.5)";
           } else {
-            lineColor = "rgba(239, 83, 80, 0.4)";
+            lineColor = "rgba(239, 83, 80, 0.25)";
           }
         }
 
@@ -157,7 +171,7 @@ class AlertsPrimitive {
 
         // Extended faint line to the left of the touch for priority alerts
         if (n.rating >= 2 && startX > 0) {
-          ctx.strokeStyle = "rgba(128, 128, 128, 0.4)";
+          ctx.strokeStyle = "rgba(128, 128, 128, 0.25)";
           ctx.lineWidth = 1;
           ctx.setLineDash([2, 4]); // faint dotted
           ctx.beginPath();
@@ -268,10 +282,26 @@ export default function ChartPanel({
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => {
+      if (typeof window === "undefined") return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setIsMobile(w <= 768 || (h <= 550 && w <= 1080));
+    };
     check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    const delayed = () => {
+      check();
+      setTimeout(check, 80);
+      setTimeout(check, 250);
+    };
+    window.addEventListener('resize', delayed);
+    window.addEventListener('orientationchange', delayed);
+    screen?.orientation?.addEventListener?.('change', delayed);
+    return () => {
+      window.removeEventListener('resize', delayed);
+      window.removeEventListener('orientationchange', delayed);
+      screen?.orientation?.removeEventListener?.('change', delayed);
+    };
   }, []);
 
   const touchStartPos = useRef(null);
@@ -380,6 +410,7 @@ export default function ChartPanel({
       rightPriceScale: { borderColor: settings.linesColor },
     });
 
+    const isMobileScreen = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
     series.applyOptions({
       upColor: settings.upColor,
       downColor: settings.downColor,
@@ -388,8 +419,26 @@ export default function ChartPanel({
       borderUpColor: settings.borderUpColor,
       borderDownColor: settings.borderDownColor,
       borderVisible: settings.borderVisible,
+      priceFormat: {
+        type: "custom",
+        formatter: (price) => {
+          if (price == null || !Number.isFinite(price)) return "";
+          const abs = Math.abs(price);
+          if (isMobileScreen) {
+            if (abs >= 1000) {
+              const s = Number(price).toFixed(2);
+              return s.endsWith(".00") ? s.slice(0, -3) : s.endsWith("0") ? s.slice(0, -1) : s;
+            }
+            if (abs >= 100) {
+              const s = Number(price).toFixed(2);
+              return s.endsWith(".00") ? s.slice(0, -3) : s;
+            }
+          }
+          return Number(price).toFixed(digits);
+        },
+      },
     });
-  }, [settings, symbol, tf]);
+  }, [settings, symbol, tf, digits]);
 
   // ---------- create chart once ----------
   useEffect(() => {
@@ -447,9 +496,14 @@ export default function ChartPanel({
             return `${y}-${m}-${day} ${hh}:${mm} EET`;
           },
         },
-        rightPriceScale: { borderColor: settings.linesColor },
+        rightPriceScale: { 
+          borderColor: settings.linesColor,
+          scaleMargins: { top: 0.08, bottom: 0.08 },
+        },
         autoSize: true,
       });
+
+      const isMobileInit = typeof window !== "undefined" && (window.innerWidth <= 768 || (window.innerHeight <= 550 && window.innerWidth <= 1080));
       // LWC v5: addSeries(SeriesType, options) replaces addCandlestickSeries()
       const series = chart.addSeries(CandlestickSeries, {
         upColor: settings.upColor, 
@@ -459,6 +513,24 @@ export default function ChartPanel({
         borderUpColor: settings.borderUpColor,
         borderDownColor: settings.borderDownColor,
         borderVisible: settings.borderVisible,
+        priceFormat: {
+          type: "custom",
+          formatter: (price) => {
+            if (price == null || !Number.isFinite(price)) return "";
+            const abs = Math.abs(price);
+            if (isMobileInit) {
+              if (abs >= 1000) {
+                const s = Number(price).toFixed(2);
+                return s.endsWith(".00") ? s.slice(0, -3) : s.endsWith("0") ? s.slice(0, -1) : s;
+              }
+              if (abs >= 100) {
+                const s = Number(price).toFixed(2);
+                return s.endsWith(".00") ? s.slice(0, -3) : s;
+              }
+            }
+            return Number(price).toFixed(digits);
+          },
+        },
       });
       
       const patterns = new PatternsPrimitive();
@@ -1776,31 +1848,65 @@ export default function ChartPanel({
         </button>
       )}
 
-      {/* Zoom / Date Range selector corner button */}
+      {/* Zoom & Settings corner controls */}
       <div 
         style={{
           position: "absolute",
           right: 0,
           bottom: 0,
-          width: 58,
           height: 26,
           zIndex: 20,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          gap: 2,
+          padding: "0 3px",
           background: "transparent",
-          cursor: "pointer",
-          color: "var(--muted)",
-          fontSize: 10,
-          fontWeight: 700,
           userSelect: "none",
-          transition: "background 0.2s"
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
-        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-        onClick={(e) => { e.stopPropagation(); setZoomMenuOpen(!zoomMenuOpen); }}
       >
-        <span>ZOOM</span>
+        <button
+          className="ghost"
+          style={{
+            padding: "2px 4px",
+            height: 22,
+            minWidth: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: zoomMenuOpen ? "var(--accent)" : "var(--muted)",
+            borderRadius: 3,
+            cursor: "pointer",
+            background: "transparent",
+            border: "none",
+          }}
+          title="Zoom Range"
+          onClick={(e) => { e.stopPropagation(); setZoomMenuOpen(!zoomMenuOpen); }}
+        >
+          <ZoomIn size={13} />
+        </button>
+        {onOpenSettings && (
+          <button
+            className="ghost"
+            style={{
+              padding: "2px 4px",
+              height: 22,
+              minWidth: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--muted)",
+              borderRadius: 3,
+              cursor: "pointer",
+              background: "transparent",
+              border: "none",
+            }}
+            title="Chart & Theme Settings"
+            onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
+          >
+            <Settings size={13} />
+          </button>
+        )}
       </div>
 
       {zoomMenuOpen && (

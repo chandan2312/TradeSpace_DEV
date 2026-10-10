@@ -92,7 +92,12 @@ export default function ControlConsole({
     telegram: config.telegram ?? true,
     enabledModels: { ...(config.enabledModels || {}) },
     allowedTimeSlots: { ...(config.allowedTimeSlots || {}), dead_zone: false },
-    symbolTimeSlots: { ...(config.symbolTimeSlots || {}) },
+    symbolTimeSlots: (() => {
+      const raw = { ...(config.symbolTimeSlots || {}) };
+      if (raw.US30 && !raw.DJ30) raw.DJ30 = raw.US30;
+      delete raw.US30;
+      return raw;
+    })(),
     sessionFilters: {
       asia: true,
       london: true,
@@ -217,16 +222,18 @@ export default function ControlConsole({
     };
   }, [allSymbolProfiles]);
 
-  // Universe list of symbols for the matrix
+  // Universe list of symbols for the matrix (strictly canonicalizing US30 to DJ30 to prevent duplicate rows)
   const matrixSymbols = useMemo(() => {
-    const list = Array.from(
-      new Set([
-        ...(universe || []),
-        ...(config.universe || []),
-        ...Object.keys(form.symbolTimeSlots || {}),
-        "NAS100", "DJ30", "SP500", "EURUSD", "GER40", "XAUUSD", "BTCUSD",
-      ])
-    ).filter(Boolean);
+    const raw = [
+      ...(universe || []),
+      ...(config.universe || []),
+      ...Object.keys(form.symbolTimeSlots || {}),
+      "NAS100", "DJ30", "SP500", "EURUSD", "GER40", "XAUUSD", "BTCUSD",
+    ];
+    const normalized = raw
+      .filter(Boolean)
+      .map((s) => (String(s).toUpperCase() === "US30" ? "DJ30" : s));
+    const list = Array.from(new Set(normalized));
 
     if (!symbolSearch.trim()) return list;
     const q = symbolSearch.trim().toLowerCase();
@@ -238,6 +245,10 @@ export default function ControlConsole({
     if (form.symbolTimeSlots?.[sym] && Array.isArray(form.symbolTimeSlots[sym])) {
       return form.symbolTimeSlots[sym];
     }
+    // Check alias if sym is DJ30
+    if (sym === "DJ30" && form.symbolTimeSlots?.US30 && Array.isArray(form.symbolTimeSlots.US30)) {
+      return form.symbolTimeSlots.US30;
+    }
     return getSymbolDefaultSlots(sym);
   };
 
@@ -248,11 +259,18 @@ export default function ControlConsole({
       ? current.filter((id) => id !== slotId)
       : [...current, slotId];
 
+    const updatedSlots = {
+      ...(prevSlots => prevSlots || {})(form.symbolTimeSlots),
+      [sym]: next,
+    };
+    if (sym === "DJ30") updatedSlots.US30 = next;
+
     setForm((prev) => ({
       ...prev,
       symbolTimeSlots: {
         ...(prev.symbolTimeSlots || {}),
         [sym]: next,
+        ...(sym === "DJ30" ? { US30: next } : {}),
       },
     }));
   };
@@ -275,6 +293,7 @@ export default function ControlConsole({
       symbolTimeSlots: {
         ...(prev.symbolTimeSlots || {}),
         [sym]: next,
+        ...(sym === "DJ30" ? { US30: next } : {}),
       },
     }));
   };
@@ -286,6 +305,9 @@ export default function ControlConsole({
     setError(null);
     try {
       const isScalp = Boolean(form.enabledHorizons?.scalp);
+      const cleanedSlots = { ...form.symbolTimeSlots };
+      if (cleanedSlots.DJ30) cleanedSlots.US30 = cleanedSlots.DJ30;
+
       await onSaveConfig({
         ...form,
         enableScalpHorizon: isScalp,
@@ -294,7 +316,7 @@ export default function ControlConsole({
           scalp: isScalp,
         },
         allowedTimeSlots: { ...form.allowedTimeSlots, dead_zone: false },
-        symbolTimeSlots: { ...form.symbolTimeSlots },
+        symbolTimeSlots: cleanedSlots,
       });
       onClose();
     } catch (err) {

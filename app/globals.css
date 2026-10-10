@@ -404,7 +404,7 @@ input::placeholder { color: var(--muted); }
   flex-wrap: nowrap;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 550px) and (max-width: 1080px) {
   /* Clean Single-Row Header Layout on Mobile */
   .autonomous-header {
     flex-direction: row !important;
@@ -629,6 +629,14 @@ input::placeholder { color: var(--muted); }
     flex: 0 0 auto;
     flex-direction: column !important;
     align-items: stretch !important;
+    min-height: 80px;
+  }
+
+  #mobile-drawing-portal {
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
   }
 
   .watchlist-container {
@@ -653,6 +661,9 @@ input::placeholder { color: var(--muted); }
     padding: 4px 6px;
     gap: 4px;
     border-bottom: none !important;
+    min-height: 40px !important;
+    display: flex !important;
+    width: 100% !important;
   }
 
   .wl-row-item {

@@ -1408,10 +1408,26 @@ export default function Dashboard() {
   
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      if (typeof window === "undefined") return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setIsMobile(w <= 768 || (h <= 550 && w <= 1080));
+    };
     handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const delayed = () => {
+      handleResize();
+      setTimeout(handleResize, 80);
+      setTimeout(handleResize, 250);
+    };
+    window.addEventListener("resize", delayed);
+    window.addEventListener("orientationchange", delayed);
+    screen?.orientation?.addEventListener?.("change", delayed);
+    return () => {
+      window.removeEventListener("resize", delayed);
+      window.removeEventListener("orientationchange", delayed);
+      screen?.orientation?.removeEventListener?.("change", delayed);
+    };
   }, []);
 
   if (fullScreenPaneId || isMobile) {
@@ -1620,10 +1636,7 @@ export default function Dashboard() {
                         <div style={{fontSize: 10, opacity: 0.5, marginLeft: 4, whiteSpace: "nowrap"}}>({loopSymbols.length} items)</div>
                       </div>
                     ) : (
-                      <div style={{ position: "absolute", top: 8, left: 12, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
-                        <button className="ghost" onClick={() => activeNotesSymbol === pane.symbol ? setActiveNotesSymbol(null) : openNotesPanel(pane.symbol)} title="Notes & Checklist" style={{ padding: "4px", background: "var(--panel)", border: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
-                          <CheckSquare size={16} />
-                        </button>
+                      <div style={{ position: "absolute", top: 8, left: 12, zIndex: 10, display: "flex", gap: 6, alignItems: "center" }}>
                         {(panes.length > 1 || fullScreenPaneId || isMobile) && (
                           <button className="ghost" onClick={(e) => { e.stopPropagation(); toggleFullscreen(pane.id); }} title="Fullscreen" style={{ padding: "4px", background: "var(--panel)", border: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
                             {fullScreenPaneId ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -1634,25 +1647,8 @@ export default function Dashboard() {
                             {pane.symbol} <span style={{fontSize: 11, fontWeight: 500, opacity: 0.7}}>{pane.tf}</span>
                           </div>
                         )}
-                        <button className="ghost" onClick={() => { setActivePaneId(pane.id); setCorrelatedOpen(true); }} title="View Correlated Pairs" style={{ padding: "4px 8px", background: "var(--panel)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                          <LayoutGrid size={14} color="var(--accent)" /> <span className="hide-mobile">Correlated</span>
-                        </button>
-                        <button
-                          className="ghost"
-                          onClick={() => setAutoCockpitOpen(true)}
-                          title="Open Autonomous Live Cockpit Drawer"
-                          style={{
-                            padding: "4px 7px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 11,
-                            color: "var(--accent)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          <Activity size={12} />
-                          <span className="hide-mobile">Cockpit</span>
+                        <button className="ghost" onClick={() => { setActivePaneId(pane.id); setCorrelatedOpen(true); }} title="View Correlated Pairs" style={{ padding: "4px 6px", background: "var(--panel)", border: "1px solid var(--border)", display: "flex", alignItems: "center", fontSize: 12 }}>
+                          <LayoutGrid size={14} color="var(--accent)" />
                         </button>
                       </div>
                     )}

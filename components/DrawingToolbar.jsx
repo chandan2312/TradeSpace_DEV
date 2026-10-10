@@ -209,12 +209,46 @@ export default function DrawingToolbar({ api }) {
   const groupMenuRef = useRef(null);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [portalNode, setPortalNode] = useState(null);
+
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => {
+      if (typeof window === "undefined") return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const mob = w <= 768 || (h <= 550 && w <= 1080);
+      setIsMobile(mob);
+      if (typeof document !== "undefined") {
+        setPortalNode(document.getElementById("mobile-drawing-portal"));
+      }
+    };
     check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    const delayed = () => {
+      check();
+      setTimeout(check, 80);
+      setTimeout(check, 250);
+    };
+    window.addEventListener("resize", delayed);
+    window.addEventListener("orientationchange", delayed);
+    screen?.orientation?.addEventListener?.("change", delayed);
+    return () => {
+      window.removeEventListener("resize", delayed);
+      window.removeEventListener("orientationchange", delayed);
+      screen?.orientation?.removeEventListener?.("change", delayed);
+    };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const findEl = () => {
+      const el = document.getElementById("mobile-drawing-portal");
+      if (el) setPortalNode(el);
+    };
+    findEl();
+    const t1 = setTimeout(findEl, 60);
+    const t2 = setTimeout(findEl, 200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isMobile]);
 
   // Drag handling
   useEffect(() => {
@@ -721,10 +755,11 @@ export default function DrawingToolbar({ api }) {
   );
 
   if (isMobile) {
-    const portalDest = typeof document !== "undefined" ? document.getElementById("mobile-drawing-portal") : null;
+    const portalDest = portalNode || (typeof document !== "undefined" ? document.getElementById("mobile-drawing-portal") : null);
+    if (!portalDest) return null;
     return (
       <>
-        {portalDest ? createPortal(mobileToolbar, portalDest) : mobileToolbar}
+        {createPortal(mobileToolbar, portalDest)}
         {mobileGroupMenu && typeof document !== "undefined" && createPortal(mobileGroupMenu, document.body)}
       </>
     );

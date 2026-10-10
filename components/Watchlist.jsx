@@ -121,12 +121,36 @@ export default function Watchlist({
 
   const allWatchlists = [...watchlists, ...virtualWatchlists];
   const [isMobile, setIsMobile] = useState(false);
+  const rowsContainerRef = useRef(null);
+
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      if (typeof window === "undefined") return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setIsMobile(w <= 768 || (h <= 550 && w <= 1080));
+    };
     handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const delayed = () => {
+      handleResize();
+      setTimeout(handleResize, 80);
+      setTimeout(handleResize, 250);
+    };
+    window.addEventListener("resize", delayed);
+    window.addEventListener("orientationchange", delayed);
+    screen?.orientation?.addEventListener?.("change", delayed);
+    return () => {
+      window.removeEventListener("resize", delayed);
+      window.removeEventListener("orientationchange", delayed);
+      screen?.orientation?.removeEventListener?.("change", delayed);
+    };
   }, []);
+
+  useEffect(() => {
+    if (rowsContainerRef.current) {
+      rowsContainerRef.current.scrollTop = 0;
+    }
+  }, [isMobile]);
   
   const baseMainLists = allWatchlists.filter(w => w.type !== "auto" || (isMobile && w._id.includes("star")));
   const autoLists = allWatchlists.filter(w => w.type === "auto" && !(isMobile && w._id.includes("star")));
@@ -137,7 +161,7 @@ export default function Watchlist({
     ...(activeAutoList && !baseMainLists.some(w => w._id === activeAutoList._id) ? [activeAutoList] : [])
   ];
 
-  const list = allWatchlists.find((w) => w._id === activeListId) || null;
+  const list = allWatchlists.find((w) => w._id === activeListId) || allWatchlists[0] || null;
   const [editing, setEditing] = useState(null);
   const [activeTab, setActiveTab] = useState("main"); // main or auto
   const [name, setName] = useState("");
@@ -677,7 +701,7 @@ export default function Watchlist({
       </div>
 
       {/* Rows */}
-      <div className="wl-rows" style={{ position: "relative" }}>
+      <div className="wl-rows" ref={rowsContainerRef} style={{ position: "relative", minHeight: isMobile ? 40 : undefined }}>
         {!list && (
           <div className="muted" style={{ padding: 16, textAlign: "center", fontSize: 12 }}>
             No watchlist selected.

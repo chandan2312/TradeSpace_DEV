@@ -178,7 +178,28 @@ export default function ChartSettingsModal({ onClose }) {
           <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
             {activeTab === "Symbol" && (
               <div>
-                <h3 style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 16 }}>Candles</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", margin: 0 }}>Candles</h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Configure For:</span>
+                    <select
+                      value={settings.appTheme || "dark"}
+                      onChange={(e) => switchTheme(e.target.value)}
+                      style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
+                    >
+                      <option value="dark">Dark Mode</option>
+                      <option value="light">Light Mode</option>
+                      <option value="navyblue">Navy Blue</option>
+                      <option value="creamy">Creamy</option>
+                      <option value="midnight">Midnight OLED</option>
+                      <option value="matrix">Matrix</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 16, padding: "4px 8px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 4 }}>
+                  Colors configured below are automatically preserved per theme. Switching themes preserves and recalls custom palettes.
+                </div>
                 
                 <div style={{ display: "flex", gap: 32 }}>
                   <div style={{ flex: 1 }}>
