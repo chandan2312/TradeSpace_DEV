@@ -1,13 +1,24 @@
 import { bridge } from "@/lib/bridge";
 import { json } from "@/lib/http";
+import { toCanonicalSymbol, toBrokerSymbol } from "@/lib/symbols/mapping";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req) {
-  const symbol = req.nextUrl.searchParams.get("symbol");
-  if (!symbol) return json({ ok: false, error: "symbol required" }, 400);
+  const rawSymbol = req.nextUrl.searchParams.get("symbol");
+  if (!rawSymbol) return json({ ok: false, error: "symbol required" }, 400);
+  
+  const canonicalSym = toCanonicalSymbol(rawSymbol);
+  const brokerSym = toBrokerSymbol(canonicalSym);
+
   try {
-    const data = await bridge("POST", "/tick", { sym: String(symbol).toUpperCase() });
+    const data = await bridge("POST", "/tick", { sym: brokerSym });
+    if (data.ok && data.tick) {
+      data.tick.symbol = canonicalSym;
+      data.tick.brokerSymbol = brokerSym;
+      data.symbol = canonicalSym;
+      data.brokerSymbol = brokerSym;
+    }
     return json(data);
   } catch (err) {
     return json({ ok: false, error: err.message }, 502);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toCanonicalSymbol } from "../lib/symbols/mapping";
 
 // Fast, keyboard-first symbol search across the entire broker universe.
 // Two modes: "switch" (load chart) or "add" (append to active watchlist).
@@ -38,7 +39,7 @@ export default function SymbolPalette({ mode, initialQuery = "", onClose, onPick
     return () => clearTimeout(handle);
   }, [q]);
 
-  const choose = useCallback((sym) => onPick(sym), [onPick]);
+  const choose = useCallback((sym) => onPick(toCanonicalSymbol(sym)), [onPick]);
 
   const onKeyDown = useCallback((e) => {
     if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
@@ -47,7 +48,7 @@ export default function SymbolPalette({ mode, initialQuery = "", onClose, onPick
     if (e.key === "Enter") {
       e.preventDefault();
       const it = items[active];
-      if (it) choose(it.name);
+      if (it) choose(it.canonical || it.name);
     }
   }, [items, active, onClose, choose]);
 
@@ -85,7 +86,7 @@ export default function SymbolPalette({ mode, initialQuery = "", onClose, onPick
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search symbol or name…  (e.g. EUR, gold, US30)"
+            placeholder="Search symbol or name…  (e.g. NAS100, EURUSD, US30)"
             style={{ flex: 1, background: "var(--bg)" }}
           />
           <button className="ghost" onClick={onClose} title="Close (Esc)">✕</button>
@@ -113,19 +114,15 @@ export default function SymbolPalette({ mode, initialQuery = "", onClose, onPick
               symbol={s}
               mode={mode}
               onHover={() => setActive(i)}
-              onPick={() => choose(s.name)}
-              onAddToList={onAddToList ? () => onAddToList(s.name) : undefined}
+              onPick={() => choose(s.canonical || s.name)}
+              onAddToList={onAddToList ? () => onAddToList(s.canonical || s.name) : null}
             />
           ))}
         </div>
 
-        <div style={{
-          padding: "7px 12px", borderTop: "1px solid var(--border)",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          fontSize: 11, color: "var(--muted)",
-        }}>
+        <div className="muted" style={{ padding: "6px 12px", borderTop: "1px solid var(--border)", fontSize: 11, display: "flex", justifyContent: "space-between" }}>
           <span>{hint}</span>
-          <span>{total.toLocaleString()} symbols</span>
+          {total > 0 && <span>{total} symbols available</span>}
         </div>
       </div>
     </div>
@@ -133,6 +130,9 @@ export default function SymbolPalette({ mode, initialQuery = "", onClose, onPick
 }
 
 function Row({ idx, active, symbol, mode, onHover, onPick, onAddToList }) {
+  const canon = symbol.canonical || toCanonicalSymbol(symbol.name);
+  const isDifferent = canon && canon !== symbol.name;
+
   return (
     <div
       data-idx={idx}
@@ -145,7 +145,14 @@ function Row({ idx, active, symbol, mode, onHover, onPick, onAddToList }) {
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="num" style={{ fontWeight: 600, fontSize: 13 }}>{symbol.name}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="num" style={{ fontWeight: 600, fontSize: 13 }}>{canon}</span>
+          {isDifferent && (
+            <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "rgba(255,255,255,0.06)", color: "var(--muted)" }}>
+              Broker: {symbol.name}
+            </span>
+          )}
+        </div>
         {symbol.description && (
           <div className="muted" style={{ fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {symbol.description}

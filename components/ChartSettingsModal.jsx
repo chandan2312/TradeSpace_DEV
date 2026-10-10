@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { useChartSettings, useRecentColors, addRecentColor, switchTheme } from "../lib/chartSettings";
+import BrokerSymbolMapping from "./BrokerSymbolMapping";
 
 function parseColor(val) {
   if (!val) return { hex: "#ffffff", alpha: 100 };
@@ -127,11 +128,11 @@ const Checkbox = ({ label, settingKey, settings, handleChange }) => (
   </div>
 );
 
-export default function ChartSettingsModal({ onClose }) {
+export default function ChartSettingsModal({ onClose, initialTab = "Symbol" }) {
   const [settings, updateSettings] = useChartSettings();
-  const [activeTab, setActiveTab] = useState("Symbol");
+  const [activeTab, setActiveTab] = useState(initialTab);
 
-  const TABS = ["Symbol", "Canvas", "Advanced"];
+  const TABS = ["Symbol", "Broker Mapping", "Canvas", "Advanced"];
 
   const handleChange = (key, value) => {
     updateSettings({ [key]: value });
@@ -141,10 +142,10 @@ export default function ChartSettingsModal({ onClose }) {
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
       display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.5)"
+      background: "rgba(0,0,0,0.6)", padding: "16px"
     }}>
       <div style={{
-        background: "var(--panel)", width: 700, height: 500, borderRadius: 12,
+        background: "var(--panel)", width: 780, maxWidth: "95vw", height: 560, maxHeight: "92vh", borderRadius: 12,
         display: "flex", flexDirection: "column", border: "1px solid var(--border)",
         boxShadow: "0 20px 40px rgba(0,0,0,0.5)", overflow: "hidden"
       }}>
@@ -219,6 +220,10 @@ export default function ChartSettingsModal({ onClose }) {
                   <Checkbox label="Color bars based on previous close" settingKey="colorBasedOnPreviousClose" settings={settings} handleChange={handleChange} />
                 </div>
               </div>
+            )}
+
+            {activeTab === "Broker Mapping" && (
+              <BrokerSymbolMapping onClose={onClose} />
             )}
 
             {activeTab === "Canvas" && (

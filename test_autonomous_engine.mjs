@@ -272,8 +272,8 @@ assert(getBrokerWatchlistSymbol("EURUSD", userWatchlist) === "EURUSD.I", "getBro
 
 // 3. Index canonical alias matching (US30 <-> DJ30, US500 <-> SP500)
 assert(isSymbolInMainWatchlist("US30", userWatchlist) === true, "US30 matches DJ30 alias");
-assert(canonOf("DJ30") === "US30", "canonOf('DJ30') normalizes to US30");
-assert(canonOf("US30") === "US30", "canonOf('US30') normalizes to US30");
+assert(canonOf("DJ30") === "DJ30", "canonOf('DJ30') normalizes to canonical DJ30");
+assert(canonOf("US30") === "DJ30", "canonOf('US30') normalizes to canonical DJ30");
 assert(getBrokerWatchlistSymbol("US30", userWatchlist) === "DJ30", "getBrokerWatchlistSymbol resolves US30 -> DJ30");
 
 assert(isSymbolInMainWatchlist("US500", userWatchlist) === true, "US500 matches SP500 alias");

@@ -23,6 +23,7 @@ import { useChartSettings } from "../lib/chartSettings";
 import { LAYOUT_CONFIG } from "../lib/layouts";
 import { sanitizeDrawings } from "../lib/draw/core.js";
 import { canonOf } from "../lib/autonomous/symbols.js";
+import { toCanonicalSymbol } from "../lib/symbols/mapping.js";
 import { hydrateTemplatesFromServer } from "../lib/draw/templates.js";
 
 // Strip un-anchored (pre-time-model) drawings from a stored {symbol:[...]} blob
@@ -144,6 +145,7 @@ export default function Dashboard() {
   const [syncedLogicalRange, setSyncedLogicalRange] = useState(null);
   const [syncedCrosshair, setSyncedCrosshair] = useState(null);
   const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
+  const [chartSettingsTab, setChartSettingsTab] = useState("Symbol");
   const [joinChainAlertId, setJoinChainAlertId] = useState(null);
   const [settings] = useChartSettings();
 
@@ -232,7 +234,7 @@ export default function Dashboard() {
         const p = getTabItem("ts_panes");
         if (p) {
           const parsed = JSON.parse(p);
-          if (parsed.length) setPanes(parsed);
+          if (parsed.length) setPanes(parsed.map(x => ({ ...x, symbol: toCanonicalSymbol(x.symbol) })));
         }
         const l = getTabItem("ts_layout");
         if (l) setLayout(l);
@@ -839,7 +841,9 @@ export default function Dashboard() {
               nextTicks[sym] = tickObj;
               const upper = sym.toUpperCase();
               nextTicks[upper] = tickObj;
-              const stripped = upper.replace(/\.I$/i, "");
+              const canon = toCanonicalSymbol(sym);
+              if (canon) nextTicks[canon] = tickObj;
+              const stripped = upper.replace(/\.[a-zA-Z0-9]+$/i, "");
               if (stripped !== upper) {
                 nextTicks[stripped] = tickObj;
               }
@@ -1529,6 +1533,7 @@ export default function Dashboard() {
         onDeleteLayout={deleteLayout}
         onOpenCorrelated={() => setCorrelatedOpen(true)}
         onOpenStrength={() => setStrengthOpen(true)}
+        onOpenSettings={(tab) => { setChartSettingsTab(tab || "Symbol"); setChartSettingsOpen(true); }}
         onOpenAutoCockpit={() => setAutoCockpitOpen((prev) => !prev)}
         autoCockpitOpen={autoCockpitOpen}
         autonomousTrades={autonomousTrades}
@@ -1682,7 +1687,7 @@ export default function Dashboard() {
                       onJoinChainAlert={joinChainAlert}
                       indicators={indicators}
                       onAutoAlert={alertsLoaded ? handleAutoAlert : null}
-                      onOpenSettings={() => setChartSettingsOpen(true)}
+                      onOpenSettings={(tab) => { setChartSettingsTab(tab || "Symbol"); setChartSettingsOpen(true); }}
                       isActive={activePaneId === pane.id}
                       // sync logic
                       syncOpts={fullScreenPaneId ? {} : syncOpts}
@@ -1861,7 +1866,7 @@ export default function Dashboard() {
       )}
 
       {chartSettingsOpen && (
-        <ChartSettingsModal onClose={() => setChartSettingsOpen(false)} />
+        <ChartSettingsModal onClose={() => setChartSettingsOpen(false)} initialTab={chartSettingsTab} />
       )}
 
       {correlatedOpen && (

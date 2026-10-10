@@ -31,7 +31,7 @@ export default function TopBar({
   loadedLayoutId, onUpdateLayout, onRenameLayout, onDeleteLayout,
   onOpenCorrelated, onOpenStrength,
   onOpenAutoCockpit, autoCockpitOpen, autonomousTrades = [],
-  radarPairs = []
+  radarPairs = [], onOpenSettings
 }) {
   const digits = tick?.digits ?? 5;
   const [settings] = useChartSettings();
@@ -555,6 +555,16 @@ export default function TopBar({
         )}
       </div>
 
+      <button
+        className="ghost hide-mobile"
+        onClick={() => onOpenSettings?.("Broker Mapping")}
+        title="Broker Symbol Mapping & Settings"
+        aria-label="Broker Symbol Mapping & Settings"
+        style={{ padding: "4px 8px", display: "flex", alignItems: "center", fontSize: 12, flexShrink: 0 }}
+      >
+        <Settings size={14} />
+      </button>
+
       <div style={{ display: "flex", gap: 6, marginLeft: "auto", alignItems: "center", flexShrink: 0 }}>
         {/* Autonomous Live Cockpit Trigger */}
         <button
@@ -884,6 +894,9 @@ export default function TopBar({
               </button>
               <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenAlerts(); }} title="Alerts" style={{ padding: "4px 8px", borderRadius: 4 }}>
                 <Bell size={14} />
+              </button>
+              <button className="ghost" onClick={() => { setMobileMenuOpen(false); onOpenSettings?.("Broker Mapping"); }} title="Broker Mapping & Settings" style={{ padding: "4px 8px", borderRadius: 4 }}>
+                <Settings size={14} />
               </button>
             </div>
           </div>

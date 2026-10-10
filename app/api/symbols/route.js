@@ -1,5 +1,6 @@
 import { bridge, symbolsCache, SYMBOLS_TTL_MS } from "@/lib/bridge";
 import { json } from "@/lib/http";
+import { toCanonicalSymbol } from "@/lib/symbols/mapping";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +25,16 @@ export async function GET(req) {
     }
 
     const query = String(q).trim().toLowerCase();
-    let items = symbolsCache.items;
+    let items = symbolsCache.items.map((s) => ({
+      ...s,
+      canonical: toCanonicalSymbol(s.name),
+    }));
+
     if (query) {
       items = items.filter(
         (s) =>
           s.name.toLowerCase().includes(query) ||
+          s.canonical.toLowerCase().includes(query) ||
           (s.description || "").toLowerCase().includes(query)
       );
     }

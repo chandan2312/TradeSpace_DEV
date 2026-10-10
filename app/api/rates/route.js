@@ -1,6 +1,7 @@
 import { bridge, ratesCache, RATES_TTL_MS } from "@/lib/bridge";
 import { json } from "@/lib/http";
 import { normalizeCandles } from "@/lib/candleNormalization";
+import { toCanonicalSymbol, toBrokerSymbol } from "@/lib/symbols/mapping";
 
 export const dynamic = "force-dynamic";
 
@@ -11,28 +12,33 @@ const TF_NORMALIZE = {
 
 export async function GET(req) {
   const sp = req.nextUrl.searchParams;
-  const symbol = sp.get("symbol");
+  const rawSymbol = sp.get("symbol");
   const rawTf = String(sp.get("tf") || "M5").toUpperCase();
   const tf = TF_NORMALIZE[rawTf] || rawTf;
   const count = sp.get("count") || 600;
   const offset = sp.get("offset") || 0;
-  if (!symbol) return json({ ok: false, error: "symbol required" }, 400);
+  if (!rawSymbol) return json({ ok: false, error: "symbol required" }, 400);
 
-  const sym = String(symbol).toUpperCase();
+  const canonicalSym = toCanonicalSymbol(rawSymbol);
+  const brokerSym = toBrokerSymbol(canonicalSym);
   const n = Math.min(Number(count) || 600, 5000);
   const off = Math.max(0, Number(offset) || 0);
   
-  // Cache keys must include offset now
-  const key = `${sym}:${tf}:${n}:${off}`;
+  // Cache keys use canonical symbol for universal consistency
+  const key = `${canonicalSym}:${tf}:${n}:${off}`;
+  const brokerKey = `${brokerSym}:${tf}:${n}:${off}`;
 
-  const cached = ratesCache.get(key);
+  const cached = ratesCache.get(key) || ratesCache.get(brokerKey);
   if (cached && Date.now() - cached.at < RATES_TTL_MS) return json(cached.data);
 
   try {
-    const data = await bridge("POST", "/rates", { sym, timeframe: tf, count: n, offset: off }, { timeoutMs: 6_000 });
+    const data = await bridge("POST", "/rates", { sym: brokerSym, timeframe: tf, count: n, offset: off }, { timeoutMs: 6_000 });
     if (data.ok && Array.isArray(data.bars)) {
       data.bars = normalizeCandles(data.bars, tf);
+      data.symbol = canonicalSym;
+      data.brokerSymbol = brokerSym;
       ratesCache.set(key, { at: Date.now(), data });
+      if (brokerKey !== key) ratesCache.set(brokerKey, { at: Date.now(), data });
       return json(data);
     }
     // Bridge error / offline: serve cached bars if available

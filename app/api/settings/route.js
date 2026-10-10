@@ -1,5 +1,6 @@
 import { getCols } from "@/lib/mongo";
 import { json } from "@/lib/http";
+import { getServerSymbolMapping, setServerSymbolMapping } from "@/lib/symbols/mapping";
 
 const SETTINGS_DOC_ID = "global_user_settings";
 
@@ -11,6 +12,12 @@ export async function GET() {
 
     if (settings.bridgeUrl) {
       globalThis._tsBridgeUrlOverride = String(settings.bridgeUrl).trim().replace(/\/$/, "");
+    }
+
+    if (settings.symbolMapping) {
+      setServerSymbolMapping(settings.symbolMapping);
+    } else {
+      settings.symbolMapping = getServerSymbolMapping();
     }
 
     return json({ ok: true, settings });
@@ -35,6 +42,10 @@ export async function PATCH(req) {
         globalThis._tsBridgeCircuit.failures = 0;
         globalThis._tsBridgeCircuit.lastFailureTime = 0;
       }
+    }
+
+    if (updates.symbolMapping) {
+      setServerSymbolMapping(updates.symbolMapping);
     }
 
     const { settingsCol } = await getCols();
